@@ -5,3 +5,4 @@ export * from "./tasks/create.js";
 export * from "./tasks/read.js";
 export * from "./tasks/list.js";
 export * from "./tasks/detail.js";
+export * from "./auth/sessions.js";

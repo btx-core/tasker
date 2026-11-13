@@ -20,6 +20,24 @@ export const S = {
   movedBack: "Perubahan dibatalkan, kartu dikembalikan",
   offline: "Koneksi terputus, mencoba lagi…",
   resync: "Menyegarkan data…",
+
+  // --- Login (FR-112) ---
+  loginTitle: "Masuk ke Kelindan",
+  loginEmail: "Email",
+  loginPassword: "Password",
+  loginSubmit: "Masuk",
+  loginSubmitting: "Sedang masuk…",
+  /**
+   * Pesan ini SENGAJA tidak membedakan "email tidak terdaftar" dan "password
+   * salah" — server juga tidak. Kalimat yang membedakan akan mengubah halaman
+   * login menjadi alat untuk mencari tahu siapa saja yang punya akun.
+   */
+  loginFailed: "Email atau password salah",
+  loginUnverified: "Email Anda belum diverifikasi",
+  loginRateLimited: "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.",
+  loginNetwork: "Tidak bisa menghubungi server. Periksa koneksi Anda.",
+  logout: "Keluar",
+  logoutAll: "Keluar dari semua perangkat",
 } as const;
 
 export type StringKey = keyof typeof S;

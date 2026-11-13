@@ -9,7 +9,20 @@
  * Uji yang memakai berkas ini DILEWATI (dengan alasan tercetak) bila
  * `KELINDAN_PG_URL` tidak diset. Dilewati secara eksplisit, bukan hijau palsu.
  */
-import { Client } from "pg";
+/**
+ * `pg` adalah modul CommonJS. `import { Client } from "pg"` berhasil di bawah
+ * vitest (yang melakukan interop sendiri) tetapi GAGAL di Node biasa dengan
+ * "Named export 'Client' not found". Karena `@kelindan/testing` ikut diimpor
+ * oleh `dev-server`, kegagalan itu membuat `npm run dev` tidak bisa start —
+ * dan tidak pernah terlihat karena seluruh uji berjalan di vitest.
+ *
+ * Impor default + destructuring adalah bentuk yang bekerja di kedua tempat.
+ */
+import pg from "pg";
+import type { Client as PgClient } from "pg";
+const { Client } = pg;
+/** Tipe sambungan: `pg.Client` tidak bisa dipakai sebagai tipe lewat nilai. */
+export type Client = PgClient;
 
 export const REAL_PG_URL = process.env["KELINDAN_PG_URL"] ?? null;
 
