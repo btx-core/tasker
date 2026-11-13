@@ -36,7 +36,7 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** 2026-11-13, **B-C (komentar, checklist, transisi status) selesai** di branch `arena/248e3679-tasker`.
+**Terakhir diperbarui:** 2026-11-13, setelah **PR #15 di-merge** (`24d321c`). **B-C selesai dan terverifikasi.**
 
 | Metrik | Nilai |
 | :--- | :--- |
@@ -287,6 +287,7 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 
 | Tanggal | Perubahan |
 | :--- | :--- |
+| 2026-11-13 | **PR #15 di-merge (`24d321c`) — B-C selesai, CI hijau 4 job pada percobaan PERTAMA.** Berbeda dari PR #11 dan #13 yang butuh beberapa run, tidak ada satu pun kegagalan gerbang di sini. Penyebabnya bukan keberuntungan: gerbang jumlah-dilewati sudah memakai rentang sejak PR #13, dan uji baru (15 modul + 15 integrasi + 19 HTTP + 7 transisi) semuanya berjalan di PGlite sehingga tidak mengubah hitungan uji jaringan. |
 | 2026-11-13 | **B-C selesai.** 8 rute baru (komentar GET/POST, PATCH/DELETE, checklist GET/POST/PATCH/DELETE), matriks peran penuh, revisi komentar, soft delete placeholder, posisi checklist ternormalisasi. **Empat temuan perilaku** (`T-40`…`T-43`) — dan yang paling penting: **peran `commenter` tidak bisa berkomentar** sejak awal, serta **tiga dari empat validasi transisi status tidak ada** padahal kontraknya menulisnya eksplisit. Uji ditulis lebih dulu dan gagal, baru kode diperbaiki. Diverifikasi pada dev-server hidup: komentar 201, checklist 201, transisi ke Selesai → `completed_at` terisi dan event `seq=1` tercatat. Uji: 281 lulus, 29 dilewati; 40 uji jaringan. |
 | 2026-11-13 | **PR #13 di-merge (`5ae68f6`) — B-B selesai, CI hijau 4 job.** Satu run merah di tengah jalan, dan penyebabnya bukan perilaku: gerbang `--expect-skipped 17` menolak **29** uji dilewati karena uji jaringan baru ditambahkan. **Angka tetap adalah gerbang yang akan merah setiap kali ada uji baru** — dan merah karena administrasi melatih orang mengabaikan merah. Gerbang kini menerima **rentang 17–100** yang menangkap dua kegagalan nyata (uji jaringan berjalan tanpa DB; uji berhenti didaftarkan), diuji pada empat keadaan. Angka tetap 17 dipertahankan sebagai jalur yang masih didukung. |
 | 2026-11-13 | **B-B (login/sesi) selesai.** `sessions` kini benar-benar ditulis: token 256-bit hanya dikirim ke klien, yang tersimpan SHA-256-nya (diuji dengan mencari token mentah di seluruh kolom teks). Endpoint `POST /v1/auth/login`, `/logout`, `/logout-all`, `GET /v1/me`, `POST /v1/auth/touch`. Halaman login dengan `<form>` + `autocomplete`. `dev-server` tidak lagi menyuntikkan cookie `demo` — demo login seperti pengguna. **Tujuh temuan** (`T-31`…`T-37`), dan yang paling penting bukan salah satunya: **empat dari tujuh hanya muncul saat server benar-benar dijalankan atau saat uji diperketat**, bukan saat kode dibaca. `T-34` = `npm run dev` tidak bisa start sementara 225 uji hijau. Uji: 225 lulus, 29 dilewati; 40 uji jaringan; bundel 4,7 KB gzip. |
