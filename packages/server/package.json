@@ -8,6 +8,7 @@
   "dependencies": {
     "@kelindan/shared": "*",
     "@kelindan/db": "*",
-    "@kelindan/testing": "*"
+    "@kelindan/testing": "*",
+    "ws": "^8.18.0"
   }
 }

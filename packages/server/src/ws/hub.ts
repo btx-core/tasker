@@ -12,6 +12,7 @@
  */
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
+import { WebSocketServer as WSS } from "ws";
 import type { Client } from "pg";
 import { ApiError, type TeamRole } from "@kelindan/shared";
 import {
@@ -77,6 +78,10 @@ export class Hub {
   private conns = new Map<string, Conn>();
   private nextId = 1;
   private pingTimer: NodeJS.Timeout | null = null;
+  /** `ws` dipakai HANYA untuk sisi server; tidak ada dependensi lain. */
+  private wss = new WSS({ noServer: true });
+  private listenClient: Client | null = null;
+  private channel = "kelindan_changes";
 
   constructor(private deps: HubDeps) {}
 
@@ -85,8 +90,8 @@ export class Hub {
   }
 
   attach(server: Server): void {
-    server.on("upgrade", (req, socket) => {
-      void this.handleUpgrade(req, socket as Duplex);
+    server.on("upgrade", (req, socket, head) => {
+      void this.handleUpgrade(req, socket as Duplex, head);
     });
   }
 
@@ -111,11 +116,12 @@ export class Hub {
   stop(): void {
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.pingTimer = null;
+    this.wss.close();
     for (const c of this.conns.values()) c.socket.close(1001, "server shutdown");
     this.conns.clear();
   }
 
-  private async handleUpgrade(req: IncomingMessage, socket: Duplex): Promise<void> {
+  private async handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
     if (new URL(req.url ?? "/", "http://x").pathname !== "/v1/ws") {
       socket.destroy();
       return;
@@ -128,12 +134,68 @@ export class Hub {
       socket.destroy();
       return;
     }
-    // Sampai di sini autentikasi sudah lulus — dan hanya sampai di sini.
 
-    // HONEST LIMIT: Node 22 punya `WebSocket` GLOBAL, tetapi itu hanya sisi
-    // KLIEN. Membangun sisi SERVER (membaca frame, masking, control frame)
-    // membutuhkan `ws` atau setara. Lihat T-16 di docs/todo.md.
-    socket.destroy();
+    this.wss.handleUpgrade(req, socket, head, (ws) => {
+      const id = this.register(who.userId, who.workspaceId, ws as unknown as WebSocket);
+      ws.on("message", (data: Buffer) => {
+        void this.handleMessage(id, data.toString("utf8"));
+      });
+      ws.on("close", () => this.remove(id));
+      ws.on("error", () => this.remove(id));
+      // Klien boleh langsung mengirim `subscribe`; tidak perlu menunggu.
+      void this.sendServerHello(id);
+    });
+  }
+
+  private sendServerHello(connId: string): void {
+    const conn = this.conns.get(connId);
+    if (!conn) return;
+    this.send(conn, {
+      op: "subscribed", team_ids: [], seq: conn.lastSeq,
+      resync_required: false, rejected: [],
+    });
+  }
+
+  /**
+   * Mulai `LISTEN` (T-17). NOTIFY hanya membawa `(workspace_id, seq)`; isi
+   * delta dibaca dari tabel `changes`. Ini yang membuat fan-out lintas proses
+   * mungkin, dan yang membuat payload besar tidak pernah menyentuh NOTIFY.
+   */
+  async startListening(channel = "kelindan_changes"): Promise<void> {
+    const client = await this.deps.db();
+    this.listenClient = client;
+    this.channel = channel;
+    client.on("notification", (msg) => {
+      if (msg.channel !== this.channel) return;
+      void this.onNotification(msg.payload ?? "");
+    });
+    await client.query(`LISTEN ${channel}`);
+  }
+
+  async stopListening(): Promise<void> {
+    if (!this.listenClient) return;
+    await this.listenClient.query(`UNLISTEN ${this.channel}`).catch(() => {});
+    this.listenClient = null;
+  }
+
+  private async onNotification(payload: string): Promise<void> {
+    // Payload: "<workspace_id>:<seq>". Bentuk yang tidak dikenal diabaikan
+    // dengan sengaja: NOTIFY bersifat best-effort, dan klien punya `resync`.
+    const [workspaceId, seqText] = payload.split(":");
+    const seq = Number(seqText);
+    if (!workspaceId || !Number.isInteger(seq)) return;
+
+    const client = await this.deps.db();
+    const row = await client.query<ChangeRow>(
+      `SELECT seq::bigint::int AS seq, entity_type, entity_id, team_id, op, version, payload
+         FROM changes WHERE workspace_id = $1 AND seq = $2`,
+      [workspaceId, seq],
+    );
+    const r = row.rows[0];
+    if (!r) return;
+    const frame = toFrame(r);
+    if (!frame) return;
+    this.broadcast([frame]);
   }
 
   /** Dipakai uji: daftarkan koneksi yang soketnya sudah disediakan. */

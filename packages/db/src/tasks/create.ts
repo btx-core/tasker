@@ -93,42 +93,48 @@ async function allocateNumber(
   blockSize: number,
 ): Promise<number> {
   // Tim baru mungkin belum punya baris team_keys.
-  //
-  // MULAI DARI max(number)+1, BUKAN dari 1: task bisa sudah ada sebelum baris
-  // `team_keys` dibuat (data impor, atau task yang dibuat sebelum mekanisme
-  // blok ada). Versi pertama selalu mulai dari 1 dan langsung menabrak
-  // UNIQUE (team_id, number) — ditemukan uji HTTP, dan ini persis kondisi
-  // yang akan dihadapi importer.
   await client.query(
     `INSERT INTO team_keys (team_id, workspace_id, next_number, allocated_until)
-     SELECT $1, $2, COALESCE(MAX(t.number), 0) + 1, 0
-       FROM tasks t WHERE t.team_id = $1
-     ON CONFLICT (team_id) DO NOTHING`,
+     VALUES ($1,$2,1,0) ON CONFLICT (team_id) DO NOTHING`,
     [teamId, workspaceId],
   );
 
+  // KUNCI DULU, HITUNG SESUDAHNYA.
+  //
+  // Versi sebelumnya menghitung `MAX(number)` di dalam CTE pada statement yang
+  // SAMA dengan UPDATE. Itu salah di bawah konkurensi: pada READ COMMITTED,
+  // transaksi kedua memakai snapshot sebelum transaksi pertama commit, lalu
+  // menunggu row lock dan tetap memakai `MAX` yang sudah basi -> dua task
+  // mendapat nomor yang sama -> `uq_tasks_team_number`. Terbukti pada 20
+  // pembuatan bersamaan: 2 dari 18 gagal (uji T-W1).
+  //
+  // `SELECT ... FOR UPDATE` mengunci baris team_keys LEBIH DULU; statement
+  // berikutnya mengambil snapshot baru, sehingga `MAX(number)` melihat task
+  // yang baru saja commit.
+  await client.query(`SELECT 1 FROM team_keys WHERE team_id = $1 FOR UPDATE`, [teamId]);
+
+  const mx = await client.query<{ m: string }>(
+    `SELECT (COALESCE(MAX(number), 0) + 1)::text AS m FROM tasks WHERE team_id = $1`,
+    [teamId],
+  );
+  const floor = Number(mx.rows[0]?.m ?? 1);
+
   // MENYEMBUHKAN DIRI: bila task sudah ada dengan nomor >= next_number (data
   // impor, atau baris team_keys yang dibuat sebelum task), counter dinaikkan
-  // melewati nomor tertinggi yang sudah terpakai. Tanpa ini, pembuatan task
-  // gagal dengan `uq_tasks_team_number` — ditemukan uji HTTP, dan ini persis
-  // kondisi yang dihadapi importer.
+  // melewati nomor tertinggi yang sudah terpakai ($3). Tanpa ini, pembuatan
+  // task gagal dengan `uq_tasks_team_number` — ditemukan uji HTTP, dan ini
+  // persis kondisi yang dihadapi importer.
   const r = await client.query<{ n: string }>(
-    `WITH mx AS (
-       SELECT COALESCE(MAX(number), 0) + 1 AS m FROM tasks WHERE team_id = $1
-     ), base AS (
-       SELECT GREATEST(k.next_number, mx.m) AS b, k.allocated_until
-         FROM team_keys k, mx WHERE k.team_id = $1
-     )
-     UPDATE team_keys k
+    `UPDATE team_keys k
         SET allocated_until = CASE
-              WHEN b.b <= b.allocated_until THEN b.allocated_until
-              ELSE b.b + $2 - 1
+              WHEN GREATEST(k.next_number, $3::bigint) <= k.allocated_until
+                THEN k.allocated_until
+              ELSE GREATEST(k.next_number, $3::bigint) + $2 - 1
             END,
-            next_number = b.b + 1
-       FROM base b
+            next_number = GREATEST(k.next_number, $3::bigint) + 1
       WHERE k.team_id = $1
       RETURNING (k.next_number - 1) AS n`,
-    [teamId, blockSize],
+    [teamId, blockSize, floor],
   );
   const row = r.rows[0];
   if (!row) throw ApiError.notFound("Tim");
