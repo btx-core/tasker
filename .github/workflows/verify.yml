@@ -38,22 +38,11 @@ jobs:
       - run: npm run lint:boundary
       - name: unit test (tanpa database jaringan)
         run: npm test 2>&1 | tee /tmp/unit.log
-      - name: pastikan uji jaringan tidak "hijau" karena dilewati
+      - name: pastikan jumlah uji yang dilewati tidak berubah
         # Di job ini database TIDAK tersedia, jadi uji jaringan memang harus
-        # dilewati. Yang diperiksa: jumlah yang dilewati HARUS tepat sama
-        # dengan yang diharapkan. Kalau bertambah, ada uji yang diam-diam
-        # berhenti berjalan.
-        run: |
-          # Ambil baris RINGKASAN ("Tests  N passed | M skipped"), BUKAN baris
-          # per-berkas. Versi pertama gerbang ini memakai `head -1` sehingga
-          # membaca 7 (berkas pertama), bukan 17 (total) — CI akan gagal tanpa
-          # alasan yang benar.
-          n=$(grep -E "^ *Tests +[0-9]+ passed" /tmp/unit.log | grep -oE "[0-9]+ skipped" | grep -oE "[0-9]+" || echo 0)
-          echo "uji dilewati: $n (diharapkan 17)"
-          if [ "$n" -ne 17 ]; then
-            echo "::error::jumlah uji yang dilewati berubah ($n, diharapkan 17). Periksa apakah uji jaringan ikut dilewati pada PR ini."
-            exit 1
-          fi
+        # dilewati — tepat 17. Kalau angkanya bergeser, ada uji yang berhenti
+        # berjalan tanpa ada yang memberi tahu.
+        run: bash scripts/assert-skip-count.sh /tmp/unit.log 17
       - name: anggaran bundel UI
         # `npm run build` di awal job sudah menghasilkan bundel; di sini hanya
         # diperiksa ukurannya. Menjalankan `build:web` lagi akan menyembunyikan
