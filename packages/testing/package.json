@@ -1,0 +1,7 @@
+{
+  "name": "@kelindan/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@kelindan/shared": "*", "@kelindan/db": "*" }
+}
