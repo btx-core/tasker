@@ -6,8 +6,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@kelindan/shared": "*",
     "@kelindan/db": "*",
+    "@kelindan/shared": "*",
     "@kelindan/testing": "*",
     "ws": "^8.18.0"
   }

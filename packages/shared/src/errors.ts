@@ -11,6 +11,14 @@ export const ERROR_CODES = {
   IDEMPOTENCY_MISMATCH: "conflict.idempotency_mismatch",
   UNSUPPORTED_PAYLOAD: "validation.unsupported_payload",
   INTERNAL: "internal.error",
+  /**
+   * Kredensial salah (FR-112). SENGAJA satu kode untuk "email tidak dikenal"
+   * dan "password salah": klien tidak boleh bisa membedakan keduanya, karena
+   * perbedaan itu mengubah endpoint login menjadi alat enumerasi akun.
+   */
+  INVALID_CREDENTIALS: "auth.invalid_credentials",
+  /** Batas percobaan terlampaui (NFR-014). Selalu disertai header Retry-After. */
+  TOO_MANY_REQUESTS: "rate.limited",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -58,6 +66,27 @@ export class ApiError extends Error {
       409,
       ERROR_CODES.IDEMPOTENCY_MISMATCH,
       "Idempotency-Key sudah dipakai dengan body berbeda",
+    );
+  }
+
+  /**
+   * Pesannya HARUS identik untuk email tak dikenal dan password salah.
+   * Bila berbeda, penyerang cukup mencoba banyak email dan membaca pesan untuk
+   * tahu mana yang terdaftar — tanpa pernah menebak password.
+   */
+  static invalidCredentials(): ApiError {
+    return new ApiError(
+      401,
+      ERROR_CODES.INVALID_CREDENTIALS,
+      "Email atau password salah",
+    );
+  }
+
+  static tooManyRequests(retryAfterSeconds: number): ApiError {
+    return new ApiError(
+      429,
+      ERROR_CODES.TOO_MANY_REQUESTS,
+      `Terlalu banyak percobaan. Coba lagi dalam ${retryAfterSeconds} detik`,
     );
   }
 }
