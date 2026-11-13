@@ -84,9 +84,18 @@ CREATE TABLE tasks (
 );
 
 -- Board & list default: query paling panas (NFR-004).
--- Diurutkan sesuai kolom agar index ini melayani ORDER BY pada board.
+--
+-- ARAH `id DESC` ITU WAJIB, BUKAN HIASAN. Versi pertama index ini memakai
+-- `id` (ASC bawaan), sementara board mengurutkan `updated_at DESC, id DESC`.
+-- PostgreSQL tidak bisa memakai index untuk campuran arah itu, sehingga ia
+-- menambahkan `Incremental Sort` di atas 7.200 baris per kolom — terlihat
+-- langsung di EXPLAIN, dan itulah yang membuat P2-04 gagal (p95 ~900 ms di
+-- PGlite pada 50 rb task). Setelah arah `id` disamakan, rencananya menjadi
+-- `Index Only Scan` + `Limit`, tanpa Sort sama sekali.
+--
+-- Pelajaran: "index sudah ada" tidak sama dengan "index dipakai".
 CREATE INDEX ix_tasks_board
-  ON tasks (workspace_id, team_id, status_id, updated_at DESC, id)
+  ON tasks (workspace_id, team_id, status_id, updated_at DESC, id DESC)
   WHERE deleted_at IS NULL;
 
 -- "Tugas saya".

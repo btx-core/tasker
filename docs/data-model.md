@@ -272,7 +272,7 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 **Index (dengan alasan):**
 | Index | Untuk |
 | :--- | :--- |
-| `(workspace_id, team_id, status_id, updated_at DESC)` | Board & List default (query paling panas, `NFR-004`). |
+| `(workspace_id, team_id, status_id, updated_at DESC, id DESC)` | Board & List default (query paling panas, `NFR-004`). **Arah `id DESC` wajib**: dengan `id` ASC bawaan, PostgreSQL menambah `Incremental Sort` di atas 7.200 baris/kolom — terukur 900 ms → 15 ms setelah diperbaiki (T-14). |
 | `(workspace_id, assignee_id, status_id)` | Filter "tugas saya". |
 | `(workspace_id, team_id, number)` unik | Resolusi `ENG-123`. |
 | `(workspace_id, due_date)` parsial `deleted_at IS NULL AND completed_at IS NULL` | Tampilan tenggat & pengingat. |
