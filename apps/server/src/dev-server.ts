@@ -14,7 +14,9 @@
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { createTestClient, applyMigrations } from "@kelindan/testing";
-import { createApp, dbSessionRepo, resolveAuth, type AppDeps } from "@kelindan/server";
+import { migrate } from "@kelindan/db";
+import { createApp, createDbPool, dbSessionRepo, resolveAuth, type AppDeps } from "@kelindan/server";
+import type { SqlClient } from "@kelindan/server";
 import { Hub, RevocationWatcher } from "@kelindan/server";
 import { uuidv7, TEAM_ROLE } from "@kelindan/shared";
 
@@ -92,12 +94,64 @@ async function seed(client: Awaited<ReturnType<typeof createTestClient>>) {
   }
 }
 
+/**
+ * Sumber data demo.
+ *
+ * `DATABASE_URL` diisi -> PostgreSQL SUNGGUHAN lewat `Pool` (T-49). Tanpa itu,
+ * PGlite in-process: demo tetap jalan tanpa infrastruktur, tetapi hanya bisa
+ * memakai SATU koneksi.
+ *
+ * KENAPA jalur pool ini penting ada di sini: sebelumnya tidak ada satu pun
+ * kode yang memakai `Pool`, sehingga perilaku "satu koneksi per proses" hanya
+ * terlihat di uji sintetis. Sekarang demo bisa dijalankan dengan pool nyata,
+ * dan itulah yang akan dipakai saat diuji pada beban.
+ */
+const DATABASE_URL = process.env["DATABASE_URL"];
+
+/** Koneksi khusus `LISTEN`, dibuat sekali dan tidak pernah dikembalikan. */
+let listenClient: unknown = null;
+
 async function main() {
-  const client = await createTestClient();
-  await client.query("CREATE EXTENSION IF NOT EXISTS citext");
-  await client.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
-  await applyMigrations(client, MIGRATIONS);
-  await seed(client);
+  /**
+   * Dua jalur, satu bentuk.
+   *
+   * `DATABASE_URL` diisi -> PostgreSQL sungguhan lewat `pg.Pool`. Tanpa itu,
+   * PGlite in-process supaya demo jalan tanpa infrastruktur.
+   *
+   * `admin` adalah klien untuk migrasi & seed (boleh satu koneksi).
+   * `dbFor(pinjamkan)` adalah yang dipakai `deps.db`: pada jalur pool ia
+   * MEMINJAMKAN koneksi per request dan mengembalikannya lewat `withClient`.
+   */
+  // Tipe eksplisit: `Pool` dan adaptor PGlite sama-sama memenuhi `SqlClient`,
+  // dan tanpa anotasi ini TypeScript menyatukan dua tanda tangan `query` yang
+  // berbeda sehingga ekspresinya menjadi "tidak bisa dipanggil".
+  const admin: SqlClient = DATABASE_URL
+    ? (new (await import("pg")).default.Pool({ connectionString: DATABASE_URL, max: 4 }) as unknown as SqlClient)
+    : await createTestClient();
+  const dbPool = DATABASE_URL
+    ? createDbPool({ connectionString: DATABASE_URL, max: Number(process.env["DB_POOL_MAX"] ?? 10) })
+    : null;
+
+  await admin.query("CREATE EXTENSION IF NOT EXISTS citext");
+  await admin.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
+
+  /**
+   * MIGRASI: runner SUNGGUHAN pada jalur `DATABASE_URL`, bukan
+   * `applyMigrations` dari `@kelindan/testing`.
+   *
+   * Bug yang diperbaiki: `applyMigrations` adalah alat uji yang menjalankan
+   * SEMUA berkas migrasi tanpa melacak versi. Pada PGlite yang selalu kosong
+   * itu tidak masalah; pada PostgreSQL yang dipakai berulang, run kedua gagal
+   * dengan `relation "workspaces" already exists` — dan `npm run dev` tidak
+   * bisa dijalankan dua kali tanpa menghapus database. Hanya terlihat dengan
+   * MENJALANKAN server, bukan lewat typecheck.
+   */
+  if (DATABASE_URL) {
+    await migrate(admin as never, { dir: MIGRATIONS, schema: "public", apply: true, log: () => {} });
+  } else {
+    await applyMigrations(admin, MIGRATIONS);
+  }
+  await seed(admin as never);
 
   const deps: AppDeps = {
     /**
@@ -105,13 +159,19 @@ async function main() {
      * untuk hash apa pun — termasuk hash yang tidak pernah diterbitkan — yang
      * berarti tidak ada satu pun perilaku auth yang diuji oleh demo.
      */
-    sessions: dbSessionRepo(client),
-    db: async () => client as never,
+    sessions: dbSessionRepo(admin as never),
+    /**
+     * Inilah T-49: pada jalur `DATABASE_URL`, setiap request meminjam satu
+     * koneksi dari pool dan mengembalikannya. Sebelumnya hanya ada SATU klien
+     * untuk seluruh proses, jadi request saling memblokir — terukur ~4x lebih
+     * lambat pada 8 query bersamaan (420 ms vs 1621 ms).
+     */
+    db: dbPool ? dbPool.deps.db : (async () => admin as never),
     async teamRoleOf(_u, ws, teamId) {
       return ws === WS_ID && teamId === TEAM ? TEAM_ROLE.ADMIN : null;
     },
     async teamIdOfTask(ws, taskId) {
-      const r = await client.query<{ team_id: string }>(
+      const r = await admin.query<{ team_id: string }>(
         `SELECT team_id FROM tasks WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
         [taskId, ws]);
       return r.rows[0]?.team_id ?? null;
@@ -146,7 +206,7 @@ async function main() {
   const app = createApp({
     ...deps,
     auth: {
-      db: async () => client as never,
+      db: dbPool ? dbPool.deps.db : (async () => admin as never),
       // Demo berjalan di http://localhost tanpa TLS; cookie `Secure` akan
       // dibuang browser dan login tidak akan pernah "menempel".
       cookieSecure: false,
@@ -162,7 +222,22 @@ async function main() {
 
   // Real-time: hub menempel pada server HTTP yang sama (satu port, satu origin).
   const hub = new Hub({
-    db: async () => client as never,
+    /**
+     * `LISTEN` membutuhkan koneksi yang HIDUP TERUS — bukan koneksi pool yang
+     * dikembalikan setelah satu query. Meminjamkannya dari pool akan menahan
+     * satu slot untuk selamanya. Inilah satu-satunya tempat di mana "satu
+     * koneksi khusus" memang jawaban yang benar, dan ia dibuat sekali di sini.
+     */
+    db: async () => {
+      if (!DATABASE_URL) return admin as never;
+      if (!listenClient) {
+        const PgClient = (await import("pg")).default.Client;
+        const c = new PgClient({ connectionString: DATABASE_URL });
+        await c.connect();
+        listenClient = c;
+      }
+      return listenClient as never;
+    },
     teamRoleOf: deps.teamRoleOf,
     /**
      * WebSocket memakai jalur otorisasi yang SAMA dengan HTTP (`resolveAuth`),
@@ -173,7 +248,7 @@ async function main() {
     auth: async (req) => {
       const resolved = await resolveAuth(
         req.headers.cookie as string | undefined,
-        dbSessionRepo(client),
+        dbSessionRepo(admin as never),
       );
       return resolved ? { userId: resolved.userId, workspaceId: resolved.workspaceId } : null;
     },
@@ -184,7 +259,7 @@ async function main() {
     // fan-out lintas proses, dan itu tercetak supaya tidak tampak seperti sukses.
     console.log(JSON.stringify({ level: "warn", msg: "LISTEN tidak tersedia pada PGlite" }));
   });
-  const watcher = new RevocationWatcher({ db: async () => client as never, hub });
+  const watcher = new RevocationWatcher({ db: dbPool ? dbPool.deps.db : (async () => admin as never), hub });
   watcher.start();
 
   const { port } = await app.listen(PORT, HOST);

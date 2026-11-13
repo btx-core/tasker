@@ -6,8 +6,8 @@
  * ribuan baris. Dua hal itu bisa tampak bertentangan; penjelasannya: kita
  * memilih "N event TERAKHIR", lalu menampilkannya dalam urutan kejadian.
  */
-import type { Client } from "pg";
 import { ApiError } from "@kelindan/shared";
+import type { SqlClient } from "../client.js";
 
 export interface TaskEventRow {
   id: string;
@@ -48,7 +48,7 @@ export interface TaskDetail {
 const DEFAULT_EVENT_LIMIT = 100;
 
 export async function loadTaskDetail(
-  client: Client,
+  client: SqlClient,
   scope: { workspaceId: string },
   taskId: string,
   eventLimit: number = DEFAULT_EVENT_LIMIT,
@@ -123,7 +123,7 @@ export async function loadTaskDetail(
 
 /** Dipakai handler untuk membedakan 404 dari "ada tapi terhapus". */
 export async function taskExists(
-  client: Client, workspaceId: string, taskId: string,
+  client: SqlClient, workspaceId: string, taskId: string,
 ): Promise<boolean> {
   const r = await client.query("SELECT 1 FROM tasks WHERE id = $1 AND workspace_id = $2", [taskId, workspaceId]);
   return (r.rowCount ?? 0) > 0;

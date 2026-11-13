@@ -11,8 +11,8 @@
  * Otorisasi lewat INDUK, sama seperti komentar (INV-13).
  */
 import { randomBytes } from "node:crypto";
-import type { Client } from "pg";
 import { ApiError } from "@kelindan/shared";
+import type { SqlClient } from "../client.js";
 
 export interface ChecklistItem {
   id: string;
@@ -32,7 +32,7 @@ export interface ChecklistProgress {
 }
 
 export async function listChecklist(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; taskId: string },
 ): Promise<ChecklistItem[]> {
   const { rows } = await client.query<ChecklistItem>(
@@ -53,7 +53,7 @@ export async function listChecklist(
  * payload.
  */
 export async function checklistProgress(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; taskIds: string[] },
 ): Promise<Map<string, ChecklistProgress>> {
   const out = new Map<string, ChecklistProgress>();
@@ -76,7 +76,7 @@ export async function checklistProgress(
 }
 
 export async function addChecklistItem(
-  client: Client,
+  client: SqlClient,
   opts: {
     workspaceId: string; taskId: string; content: string;
     assigneeId?: string | null; dueDate?: string | null;
@@ -119,7 +119,7 @@ export async function addChecklistItem(
  * 400 dengan nama field, bukan "kesalahan internal".
  */
 export async function updateChecklistItem(
-  client: Client,
+  client: SqlClient,
   opts: {
     workspaceId: string; itemId: string;
     patch: { content?: string; is_done?: boolean; assigneeId?: string | null; dueDate?: string | null };
@@ -169,7 +169,7 @@ export async function updateChecklistItem(
  * menebak jarak antar-item, dan `position` berhenti bermakna sebagai indeks.
  */
 export async function deleteChecklistItem(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; itemId: string },
 ): Promise<{ deleted: boolean }> {
   const current = await loadItem(client, opts.workspaceId, opts.itemId);
@@ -195,7 +195,7 @@ export async function deleteChecklistItem(
  * unik per baris. Mengubah 0,1,2 menjadi 0,1 dengan cara naif bisa mengenai
  * posisi yang masih dipakai baris lain di tengah pernyataan.
  */
-async function resequence(client: Client, taskId: string): Promise<void> {
+async function resequence(client: SqlClient, taskId: string): Promise<void> {
   await client.query(
     `UPDATE checklist_items SET position = position + 100000 WHERE task_id = $1`,
     [taskId],
@@ -210,7 +210,7 @@ async function resequence(client: Client, taskId: string): Promise<void> {
 }
 
 async function loadItem(
-  client: Client,
+  client: SqlClient,
   workspaceId: string,
   itemId: string,
 ): Promise<ChecklistItem | null> {
@@ -225,7 +225,7 @@ async function loadItem(
   return rows[0] ?? null;
 }
 
-async function assertTaskVisible(client: Client, workspaceId: string, taskId: string): Promise<void> {
+async function assertTaskVisible(client: SqlClient, workspaceId: string, taskId: string): Promise<void> {
   const { rows } = await client.query(
     "SELECT 1 FROM tasks WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL",
     [taskId, workspaceId],

@@ -27,6 +27,17 @@ export const ERROR_CODES = {
    * tim.
    */
   EMAIL_UNVERIFIED: "auth.email_unverified",
+  /**
+   * Pool koneksi database penuh (api-contract.md §5, T-49).
+   *
+   * KENAPA kode tersendiri, bukan `internal.error`: perbedaannya menentukan apa
+   * yang boleh dilakukan klien. Galat internal adalah bug — mencoba lagi tidak
+   * menolong. Pool penuh bersifat SEMENTARA — mencoba lagi dalam sedetik
+   * biasanya berhasil, dan klien boleh mempertahankan input pengguna. Tanpa
+   * kode ini, pengguna melihat "terjadi kesalahan" dan mengetik ulang
+   * komentarnya, padahal datanya tidak pernah bermasalah.
+   */
+  SERVER_BUSY: "server.busy",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

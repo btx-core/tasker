@@ -8,9 +8,9 @@
  * memesan blok. Pengguna lebih memaafkan ENG-118 yang hilang daripada
  * antrean pembuatan task.
  */
-import type { Client } from "pg";
 import { ApiError, can, ACTIONS, uuidv7, type Actor } from "@kelindan/shared";
 import type { TaskRow } from "./types.js";
+import type { SqlClient } from "../client.js";
 
 export interface CreateTaskParams {
   actor: Actor;
@@ -24,7 +24,7 @@ export interface CreateTaskParams {
 
 const DEFAULT_BLOCK = 20;
 
-export async function createTask(client: Client, p: CreateTaskParams): Promise<TaskRow> {
+export async function createTask(client: SqlClient, p: CreateTaskParams): Promise<TaskRow> {
   if (!can(p.actor, ACTIONS.TASK_CREATE)) {
     throw new ApiError(403, "auth.forbidden", "Tidak berwenang membuat task");
   }
@@ -87,7 +87,7 @@ export async function createTask(client: Client, p: CreateTaskParams): Promise<T
  * nomor yang sama.
  */
 async function allocateNumber(
-  client: Client,
+  client: SqlClient,
   teamId: string,
   workspaceId: string,
   blockSize: number,

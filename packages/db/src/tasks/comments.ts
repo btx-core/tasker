@@ -16,8 +16,8 @@
  *     pernah ada balasan" dari "balasannya dihapus".
  */
 import { randomBytes } from "node:crypto";
-import type { Client } from "pg";
 import { ApiError } from "@kelindan/shared";
+import type { SqlClient } from "../client.js";
 
 export interface CommentRow {
   id: string;
@@ -43,7 +43,7 @@ const COMMENT_COLUMNS = `
  * terhapus tidak bisa dibaca maupun diubah.
  */
 export async function taskScope(
-  client: Client,
+  client: SqlClient,
   workspaceId: string,
   taskId: string,
 ): Promise<{ taskId: string; teamId: string }> {
@@ -62,7 +62,7 @@ export async function taskScope(
  * dihapus" di posisi yang benar.
  */
 export async function listComments(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; taskId: string; limit?: number; before?: Date },
 ): Promise<CommentRow[]> {
   await taskScope(client, opts.workspaceId, opts.taskId);
@@ -86,7 +86,7 @@ export async function listComments(
 }
 
 export async function createComment(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; taskId: string; authorId: string; body: string },
 ): Promise<CommentRow> {
   await taskScope(client, opts.workspaceId, opts.taskId);
@@ -105,7 +105,7 @@ export async function createComment(
  * terlihat, atau task-nya terhapus — pemanggil yang memutuskan 400/403/404.
  */
 export async function loadComment(
-  client: Client,
+  client: SqlClient,
   workspaceId: string,
   commentId: string,
 ): Promise<CommentRow | null> {
@@ -128,7 +128,7 @@ export async function loadComment(
  * menghilangkan teks lama secara diam-diam bila penulisan revisi gagal.
  */
 export async function updateComment(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; commentId: string; editorId: string; body: string; now?: Date },
 ): Promise<CommentRow> {
   const before = await loadComment(client, opts.workspaceId, opts.commentId);
@@ -175,7 +175,7 @@ export async function updateComment(
  * keputusan retensi/privacy yang belum diambil. Dicatat sebagai T-38.
  */
 export async function deleteComment(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; commentId: string; now?: Date },
 ): Promise<{ alreadyDeleted: boolean }> {
   const before = await loadComment(client, opts.workspaceId, opts.commentId);
@@ -191,7 +191,7 @@ export async function deleteComment(
 
 /** Revisi komentar (ENT-13), untuk fitur "lihat riwayat edit" kelak. */
 export async function listCommentRevisions(
-  client: Client,
+  client: SqlClient,
   opts: { workspaceId: string; commentId: string },
 ): Promise<Array<{ id: string; body: string; created_at: Date; edited_by: string }>> {
   const { rows } = await client.query<{ id: string; body: string; created_at: Date; edited_by: string }>(

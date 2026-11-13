@@ -16,8 +16,8 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
-import type { Client } from "pg";
 import type { SessionContext } from "@kelindan/shared";
+import type { SqlClient } from "../client.js";
 
 export interface SessionRow extends SessionContext {
   epochNow: number;
@@ -54,7 +54,7 @@ function newToken(): string {
  * workspace mana pun.
  */
 export async function createSession(
-  db: Client,
+  db: SqlClient,
   opts: {
     userId: string;
     workspaceId: string | null;
@@ -113,7 +113,7 @@ export async function createSession(
  * Mencari sesi lewat HASH token. Tidak ada jalur lain: token asli tidak
  * tersimpan, jadi tidak mungkin mencari dengan token.
  */
-export async function findSession(db: Client, token: string): Promise<SessionRow | null> {
+export async function findSession(db: SqlClient, token: string): Promise<SessionRow | null> {
   const { rows } = await db.query<{
     id: string;
     user_id: string;
@@ -145,7 +145,7 @@ export async function findSession(db: Client, token: string): Promise<SessionRow
 }
 
 /** Mencabut SATU sesi (logout). Idempoten: sesi yang sudah tercabut tetap dianggap berhasil. */
-export async function revokeSession(db: Client, token: string, now: Date = new Date()): Promise<boolean> {
+export async function revokeSession(db: SqlClient, token: string, now: Date = new Date()): Promise<boolean> {
   const { rowCount } = await db.query(
     "UPDATE sessions SET revoked_at = $2 WHERE token_hash = $1 AND revoked_at IS NULL",
     [hashSessionToken(token), now.toISOString()],
@@ -163,7 +163,7 @@ export async function revokeSession(db: Client, token: string, now: Date = new D
  * sesi yang SUDAH ada. Satu langkah saja meninggalkan celah.
  */
 export async function revokeAllSessions(
-  db: Client,
+  db: SqlClient,
   userId: string,
   now: Date = new Date(),
 ): Promise<number> {
@@ -196,7 +196,7 @@ export async function revokeAllSessions(
  * tabel sesi menjadi titik panas tulis.
  */
 export async function touchSession(
-  db: Client,
+  db: SqlClient,
   sessionId: string,
   now: Date = new Date(),
 ): Promise<void> {
@@ -208,7 +208,7 @@ export async function touchSession(
 }
 
 /** Pembersihan sesi kedaluwarsa. Dipanggil terjadwal, bukan pada jalur request. */
-export async function purgeExpiredSessions(db: Client, now: Date = new Date()): Promise<number> {
+export async function purgeExpiredSessions(db: SqlClient, now: Date = new Date()): Promise<number> {
   const { rowCount } = await db.query(
     // Sesi tercabut disimpan 7 hari sebagai jejak audit (FR-305), lalu dibuang.
     `DELETE FROM sessions

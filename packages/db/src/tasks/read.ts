@@ -1,3 +1,4 @@
+import type { SqlClient } from "../client.js";
 /**
  * Lapisan BACA. Tidak ada mutasi di sini.
  *
@@ -5,7 +6,6 @@
  * RINGKAS (tanpa `description`), detail memakai bentuk PENUH. Pemisahan itu
  * eksplisit — endpoint tidak pernah "kadang berat".
  */
-import type { Client } from "pg";
 
 /** Bentuk ringkas (board & list), api-contract.md §8.4. */
 export interface TaskSummary {
@@ -65,7 +65,7 @@ const BOARD_LIMIT = 50;
  * `LEFT` JOIN memastikan status tanpa task tetap muncul sebagai kolom kosong.
  */
 export async function loadBoard(
-  client: Client,
+  client: SqlClient,
   scope: { workspaceId: string; teamId: string },
   limit: number = BOARD_LIMIT,
 ): Promise<BoardResult> {

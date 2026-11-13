@@ -1,8 +1,27 @@
 import { readFile } from "node:fs/promises";
 import type { ClientLike } from "./pglite-adapter.js";
 
+/**
+ * Bentuk klien SQL minimal. SENGAJA diduplikasi di sini, bukan diimpor dari
+ * `@kelindan/db`: `@kelindan/testing` dipakai uji SELURUH paket, dan
+ * ketergantungan ke paket data akan membuat graf impor melingkar.
+ */
+export interface SqlClient {
+  query<R = Record<string, unknown>>(
+    sql: string, params?: readonly unknown[],
+  ): Promise<{ rows: R[]; rowCount: number | null }>;
+}
+
 /** Terapkan migrasi repo berurutan (untuk uji; BUKAN runner produksi). */
-export async function applyMigrations(client: ClientLike, dir: string, to = 99): Promise<string[]> {
+/**
+ * Menerima `ClientLike` MAUPUN `SqlClient` (`pg.Client`/`pg.Pool`).
+ *
+ * KENAPA: `applyMigrations` dipakai di uji DAN di `dev-server` yang kini bisa
+ * memakai `pg.Pool` (T-49). Menuntut `ClientLike` memaksa pemanggil melakukan
+ * cast yang menyembunyikan ketidakcocokan `rowCount` (`pg` mengembalikan
+ * `null` untuk perintah tanpa baris). Satu tipe untuk keduanya lebih jujur.
+ */
+export async function applyMigrations(client: ClientLike | SqlClient, dir: string, to = 99): Promise<string[]> {
   const { readdir } = await import("node:fs/promises");
   const files = (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort();
   const applied: string[] = [];
