@@ -14,7 +14,7 @@
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { createTestClient, applyMigrations } from "@kelindan/testing";
-import { createApp, type AppDeps } from "@kelindan/server";
+import { createApp, dbSessionRepo, resolveAuth, type AppDeps } from "@kelindan/server";
 import { Hub, RevocationWatcher } from "@kelindan/server";
 import { uuidv7, TEAM_ROLE } from "@kelindan/shared";
 
@@ -28,7 +28,15 @@ const HOST = "0.0.0.0"; // wajib: preview mem-proxy dari luar sandbox
 const WS_ID = "0190f000-0000-7000-8000-000000000001";
 const TEAM = "0190f000-0000-7000-8000-0000000000c1";
 const DEMO_USER = "0190f000-0000-7000-8000-0000000000a1";
-const DEMO_TOKEN = "demo";
+/**
+ * Kredensial demo. HANYA ada di `dev-server` (tidak pernah di paket server),
+ * dan hanya dipakai seed lokal. Sebelumnya server menyuntikkan cookie
+ * `kelindan_session=demo` ke setiap request, sehingga SELURUH jalur
+ * autentikasi tidak pernah dijalankan — login, pencabutan sesi, dan epoch
+ * tidak pernah terbukti bekerja. Sekarang demo harus login seperti pengguna.
+ */
+const DEMO_EMAIL = "demo@kelindan.id";
+const DEMO_PASSWORD = "demo-kelindan-2026";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -42,8 +50,12 @@ async function seed(client: Awaited<ReturnType<typeof createTestClient>>) {
   if (Number(exists.rows[0]?.c ?? 0) > 0) return;
 
   await client.query(`INSERT INTO workspaces (id,name,slug,seq_next) VALUES ($1,'Ruang Kerja','ruang-kerja',1)`, [WS_ID]);
+  const { hashPassword } = await import("@kelindan/server");
   await client.query(
-    `INSERT INTO users (id,email,display_name) VALUES ($1,'demo@kelindan.id','Demo')`, [DEMO_USER]);
+    `INSERT INTO users (id,email,display_name,password_hash,email_verified_at)
+     VALUES ($1,$2,'Demo',$3, now())`,
+    [DEMO_USER, DEMO_EMAIL, await hashPassword(DEMO_PASSWORD)],
+  );
   await client.query(
     `INSERT INTO workspace_members (id,workspace_id,user_id,role) VALUES ($1,$2,$3,1)`,
     [uuidv7(), WS_ID, DEMO_USER]);
@@ -88,14 +100,12 @@ async function main() {
   await seed(client);
 
   const deps: AppDeps = {
-    sessions: {
-      async findByTokenHash() {
-        return {
-          sessionId: "demo-session", userId: DEMO_USER, workspaceId: WS_ID,
-          epoch: 1, expiresAt: new Date(Date.now() + 86_400_000), revokedAt: null, epochNow: 1,
-        };
-      },
-    },
+    /**
+     * Repositori sesi SUNGGUHAN. Versi sebelumnya mengembalikan sesi tetap
+     * untuk hash apa pun — termasuk hash yang tidak pernah diterbitkan — yang
+     * berarti tidak ada satu pun perilaku auth yang diuji oleh demo.
+     */
+    sessions: dbSessionRepo(client),
     db: async () => client as never,
     async teamRoleOf(_u, ws, teamId) {
       return ws === WS_ID && teamId === TEAM ? TEAM_ROLE.ADMIN : null;
@@ -108,10 +118,16 @@ async function main() {
     },
   };
 
-  const app = createApp(deps);
-
-  // Berkas statis dilayani lewat `staticHandler` (satu origin untuk UI + API).
-  (deps as AppDeps).staticHandler = async (_req, res, url) => {
+  /**
+   * `staticHandler` DIPASANG SEBELUM `createApp`, bukan sesudah.
+   *
+   * Bug yang diperbaiki: versi sebelumnya membuat `createApp(deps)` lalu
+   * menulis `(deps as AppDeps).staticHandler = ...` pada objek asli. Karena
+   * `deps` disalin ke objek baru saat ini, penulisan itu tidak pernah terlihat
+   * server — sehingga `/` dan `/main.js` menjawab 404 dan UI tidak bisa dibuka
+   * sama sekali. Hanya terlihat dengan MENJALANKAN servernya, bukan lewat uji.
+   */
+  deps.staticHandler = async (_req, res, url) => {
     const path = url.pathname === "/" ? "/index.html" : url.pathname;
     const safe = normalize(path).replace(/^(\.\.[/\\])+/, "");
     // `/main.js` berasal dari bundel (`public/`), sisanya dari sumber web.
@@ -127,19 +143,39 @@ async function main() {
     return true;
   };
 
-  // Demo: tanpa login, sesi disuntikkan. Ini HANYA untuk demo lokal.
-  app.server.prependListener("request", (req) => {
-    if (!req.headers.cookie) req.headers.cookie = `kelindan_session=${DEMO_TOKEN}`;
+  const app = createApp({
+    ...deps,
+    auth: {
+      db: async () => client as never,
+      // Demo berjalan di http://localhost tanpa TLS; cookie `Secure` akan
+      // dibuang browser dan login tidak akan pernah "menempel".
+      cookieSecure: false,
+    },
   });
+
+  /**
+   * TIDAK ADA LAGI PENYUNTIKAN SESI. Dulu baris di sini berbunyi:
+   * `if (!req.headers.cookie) req.headers.cookie = "kelindan_session=demo"`.
+   * Itu membuat demo selalu "berhasil" apa pun keadaan autentikasi, dan
+   * menyembunyikan bug nyata — termasuk sesi yang seharusnya sudah dicabut.
+   */
 
   // Real-time: hub menempel pada server HTTP yang sama (satu port, satu origin).
   const hub = new Hub({
     db: async () => client as never,
     teamRoleOf: deps.teamRoleOf,
+    /**
+     * WebSocket memakai jalur otorisasi yang SAMA dengan HTTP (`resolveAuth`),
+     * bukan pemeriksaan `includes("kelindan_session=")` yang menerima token
+     * apa pun. Tanpa ini, sesi yang sudah dicabut tetap bisa membuka
+     * WebSocket — jalur yang justru paling sulit terlihat.
+     */
     auth: async (req) => {
-      const cookie = String(req.headers.cookie ?? "");
-      return cookie.includes("kelindan_session=")
-        ? { userId: DEMO_USER, workspaceId: WS_ID } : null;
+      const resolved = await resolveAuth(
+        req.headers.cookie as string | undefined,
+        dbSessionRepo(client),
+      );
+      return resolved ? { userId: resolved.userId, workspaceId: resolved.workspaceId } : null;
     },
   });
   hub.attach(app.server);

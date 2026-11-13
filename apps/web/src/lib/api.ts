@@ -113,6 +113,59 @@ export class HttpClient {
     return { ok: false, status: lastStatus, data: null, error: lastError };
   }
 
+  /**
+   * Rute auth. Sengaja TIDAK diulang otomatis: `request()` otomatis mengulang
+   * galat jaringan untuk non-GET, dan percobaan login yang diulang diam-diam
+   * menghabiskan jatah 10/menit (NFR-014). Login harus satu percobaan per
+   * penekanan tombol — pengguna yang menekan dua kali tahu apa yang ia lakukan.
+   */
+  async login(email: string, password: string) {
+    return this.send<{ user: { id: string; displayName: string; workspaceId: string | null } }>(
+      "POST", "/v1/auth/login", { email, password },
+    );
+  }
+
+  async logout() {
+    return this.send<null>("POST", "/v1/auth/logout");
+  }
+
+  async me() {
+    return this.send<{ user: { id: string; display_name: string; email: string }; workspace_id: string }>(
+      "GET", "/v1/me",
+    );
+  }
+
+  /** Satu percobaan, tanpa retry otomatis. Lihat catatan pada `login`. */
+  private async send<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
+    let res: Response;
+    try {
+      res = await this.opts.fetchImpl(`${this.opts.baseUrl}${path}`, {
+        method,
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+    } catch {
+      return {
+        ok: false, status: 0, data: null,
+        error: { code: ERROR_CODES.INTERNAL, message: "Jaringan terputus", trace_id: "", retryable: true },
+      };
+    }
+    const text = await res.text();
+    const parsed: unknown = text ? JSON.parse(text) : null;
+    if (res.ok) return { ok: true, status: res.status, data: parsed as T, error: null };
+    const e = (parsed ?? {}) as Partial<ApiErrorBody>;
+    return {
+      ok: false, status: res.status, data: null,
+      error: {
+        code: e.code ?? ERROR_CODES.INTERNAL,
+        message: e.message ?? "Terjadi kesalahan",
+        trace_id: e.trace_id ?? "",
+        retryable: RETRYABLE_STATUS.has(res.status),
+      },
+    };
+  }
+
   patchTask(taskId: string, patch: Record<string, unknown>, idempotencyKey?: string) {
     return this.request<{ task: Record<string, unknown>; seq: number; replayed: boolean }>(
       "PATCH", `/v1/tasks/${taskId}`, patch,
