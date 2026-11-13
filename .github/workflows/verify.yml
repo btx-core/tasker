@@ -1,0 +1,150 @@
+# CI: menjalankan yang SUDAH ada, bukan menulis uji baru.
+#
+# KENAPA INI PRIORITAS PERTAMA: sebelum berkas ini ada, 189 uji hanya berjalan
+# bila seseorang ingat menjalankannya. Kode di `main` terlihat teruji dan tidak
+# ada yang memberi tahu bahwa tidak ada yang menjaganya. Itu kegagalan yang
+# tak terlihat, dan karena itu paling berbahaya.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # PR yang di-push ulang membatalkan run lama: menghabiskan kuota untuk hasil
+  # yang sudah usang hanya memperlambat umpan balik.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Lapis 1 — cepat, tanpa database jaringan. Ini yang harus hijau sebelum
+  # siapa pun meninjau.
+  unit:
+    name: unit + lint + batas modul
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # `node scripts/build.mjs` = tsc -b --force + verifikasi dist + bundel UI.
+      # `--force` WAJIB: lihat T-28, `tsbuildinfo` membuat `tsc -b` diam-diam
+      # tidak menghasilkan apa pun.
+      - run: npm run build
+      - run: npm run lint
+      - run: npm run lint:boundary
+      - name: unit test (tanpa database jaringan)
+        # `tee` pada output manusia TIDAK bisa diandalkan: di CI, vitest
+        # menulis progresnya ke TTY, dan yang tertangkap pipe bisa kosong.
+        # Reporter JSON menulis ringkasan yang bisa dibaca mesin ke berkas.
+        run: npx vitest run --reporter=json --outputFile=/tmp/unit.json
+      - name: pastikan jumlah uji yang dilewati tidak berubah
+        # Di job ini database TIDAK tersedia, jadi uji jaringan memang harus
+        # dilewati — tepat 17. Kalau angkanya bergeser, ada uji yang berhenti
+        # berjalan tanpa ada yang memberi tahu.
+        run: node scripts/test-gate.mjs /tmp/unit.json --expect-skipped 17
+      - name: anggaran bundel UI
+        # `npm run build` di awal job sudah menghasilkan bundel; di sini hanya
+        # diperiksa ukurannya. Menjalankan `build:web` lagi akan menyembunyikan
+        # kegagalan urutan build seperti T-28.
+        run: npm run bundle:check
+
+  # Lapis 2 — PostgreSQL sungguhan. Inilah yang membuktikan konkurensi,
+  # LISTEN/NOTIFY, dan pencabutan akses; tidak satu pun bisa dibuktikan PGlite.
+  #
+  # MATRIKS 16 & 17: `testing-strategy.md` §10 butir 6 mensyaratkannya. Sampai
+  # sekarang yang pernah dijalankan hanya 16.2 dan 18.6 — matriks itu belum
+  # pernah diuji, dan matriks yang tidak pernah dijalankan hanyalah niat.
+  database:
+    name: postgres ${{ matrix.postgres }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["16", "17"]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kelindan_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      KELINDAN_PG_URL: postgres://postgres:postgres@127.0.0.1:5432/kelindan_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # WAJIB. Ini kesalahan pertama CI versi ini: `npm ci` tidak membangun
+      # apa pun, sedangkan uji mengimpor `@kelindan/db` yang menunjuk ke
+      # `dist/`. Tanpa langkah ini seluruh job gagal dengan
+      # "Failed to resolve entry for package @kelindan/db" — dan itu TERJADI
+      # pada run pertama, bukan hipotesis.
+      - name: bangun paket (wajib sebelum uji)
+        # Tanpa ini uji gagal "Failed to resolve entry @kelindan/db" — sudah
+        # terjadi pada run pertama CI.
+        run: npm run build
+      - name: ekstensi yang dibutuhkan skema
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d kelindan_test \
+            -c "CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+      - name: uji konkurensi + real-time pada PostgreSQL nyata
+        # WAJIB gagal bila uji ini DILEWATI. Tanpa pemeriksaan ini, CI akan
+        # hijau meskipun `KELINDAN_PG_URL` salah ketik — dan hijau palsu lebih
+        # berbahaya daripada merah.
+        run: |
+          npx vitest run packages/db/src/tasks/concurrency.realpg.test.ts packages/server/src/ws \
+            --reporter=json --outputFile=/tmp/realpg.json
+      - name: gerbang "jangan hijau palsu"
+        run: node scripts/test-gate.mjs /tmp/realpg.json --no-skipped
+
+  # Lapis 3 — invarian yang tidak boleh dibiarkan "belum pernah dijalankan".
+  # Sengaja terpisah dari `unit` supaya kegagalannya menunjuk langsung ke
+  # masalahnya, bukan terkubur di antara 189 uji.
+  guard:
+    name: penjaga repo (migrasi, batas, rahasia)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: tidak ada migrasi destruktif
+        # Menghapus tabel/kolom di migrasi yang sudah dirilis akan menghancurkan
+        # data pelanggan tanpa peringatan. Perubahan destruktif harus lewat
+        # migrasi baru + catatan, bukan mengubah berkas lama.
+        run: |
+          if git ls-files 'packages/db/migrations/*.sql' | xargs grep -inE "^\s*(DROP\s+(TABLE|COLUMN|DATABASE)|TRUNCATE)" ; then
+            echo "::error::migrasi memuat pernyataan destruktif — tinjau manual"
+            exit 1
+          fi
+      - name: tidak ada kredensial di repo
+        run: |
+          # Kecualikan berkas uji: fixture seperti "postgres://u:p@localhost/db"
+          # adalah data uji, bukan rahasia. Versi pertama penjaga ini menandainya
+          # sebagai kebocoran dan akan memblokir setiap PR.
+          if git grep -nE "(postgres|postgresql)://[^@[:space:]]+:[^@[:space:]]+@" -- \
+               ':!*.md' ':!*.yml' ':!*.example' ':!*.test.ts' ':!*.int.test.ts' \
+               ':!*.realpg.test.ts' ':!scripts/*'; then
+            echo "::error::URL database dengan kata sandi ditemukan di kode"
+            exit 1
+          fi
+      - name: berkas build tidak ikut ter-commit
+        run: |
+          if git ls-files | grep -E "(^|/)(dist|public/main\.js|node_modules|.*\.tsbuildinfo)$"; then
+            echo "::error::artefak build ter-commit"
+            exit 1
+          fi
