@@ -36,7 +36,14 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** setelah PR #9 di-merge (commit `MAIN_AFTER_MERGE`). **Uji:** 189 lulus + 17 dilewati dengan alasan tercetak (uji jaringan); **28 uji jaringan lulus** saat PostgreSQL dinyalakan.
+**Terakhir diperbarui:** 2026-11-13, setelah **PR #9 di-merge** ke `main` (merge commit `3a88d1f`, 64 berkas, +6470/−219).
+
+| Metrik | Nilai |
+| :--- | :--- |
+| Uji cepat (`npm test`) | **189 lulus**, 17 dilewati *dengan alasan tercetak* |
+| Uji jaringan (`npm run test:realpg`) | **28 lulus** pada PostgreSQL 18.6 sungguhan |
+| Bundel UI | **3,8 KB gzip** (anggaran 60 KB) |
+| Di `main` | seluruh kode P0–P4, `docs/testing-realpg.md`, `npm run pg:up` |
 
 ### Selesai — dengan bukti yang bisa dijalankan ulang
 
@@ -45,7 +52,7 @@ berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 | **P0** | Fondasi repo, config fail-fast, runner migrasi (20 migrasi), penjaga batas modul | 61 uji + uji negatif lint |
 | **P1** | Jalur tulis task: idempotensi, versi, izin per-field, isolasi tenant, handler HTTP | 19 uji HTTP + 13 uji integrasi + **28 uji PostgreSQL jaringan** |
 | **P2** | Board 4 query, cursor `(sort_key, id)`, detail + riwayat, 50 rb task | p95 15 ms di PGlite; `ix_tasks_board` tanpa `Sort` |
-| **P3** | WebSocket server nyata, `LISTEN`/`NOTIFY` lintas koneksi, klasifikasi K1/K2/K3, celah `seq`, pencabutan **terukur 91 ms** | 5 uji soket nyata + 3 uji pencabutan |
+| **P3** | WebSocket server nyata, `LISTEN`/`NOTIFY` lintas koneksi, klasifikasi K1/K2/K3, celah `seq`, pencabutan **terukur 88–91 ms** | 5 uji soket nyata + 3 uji pencabutan (`npm run test:realpg`) |
 | **P4** | Board UI berjalan, klien idempoten, rollback optimistis, konflik tidak menimpa, i18n tertegak | 30 uji UI; bundel **3,8 KB gzip** |
 
 ### Sebagian — ada buktinya, tapi belum utuh
@@ -260,6 +267,9 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 | 2026-11-12 | **TC-15 TERUKUR: 91 ms** (SLA 5 000 ms). `RevocationWatcher` memantau `team_members.revoked_at` dan memanggil `revokeTeam()`; 3 uji jaringan lulus termasuk anti-false-positive saat restart. **28 uji jaringan lulus.** "Ringkasan status" ditambahkan di atas dokumen sebagai jawaban satu layar (selesai / sebagian / belum), dan aturan §0.6 mewajibkan ringkasan itu diperbarui setiap merge. |
 | 2026-11-12 | **P1 sebagian**: `P1-01`, `P1-04`…`P1-09`, `P1-12` selesai; `P1-14` jejaknya terbukti. **9 skenario jalur tulis dibuktikan pada PostgreSQL nyata** lewat konektor (versi §10). `P1-15` (handler HTTP) ditambahkan sebagai tugas baru. Temuan T-04 & T-05 dicatat. Jalur tulis: idempotensi REPLAY, versi +1 tepat, no-op tidak menaikkan, 409 versi, 404 lintas tenant, NOTIFY 38 byte, payload 53 byte tanpa deskripsi, kategori event 1→3, `from_value` tersimpan. |
 | 2026-11-12 | `P0-01`…`P0-05`, `P0-08`, `P0-09` **selesai**. `P0-07` runner selesai di kode, uji integrasi tertunda (T-01). `npm run verify` hijau: typecheck + lint + 2 uji negatif batas modul + 24 uji unit. 3 temuan dicatat (T-01…T-03). |
+
+---
+| 2026-11-13 | **PR #9 di-merge ke `main` (`3a88d1f`)** — 64 berkas, +6470/−219. Ringkasan status di atas diperbarui sesuai §0 aturan 6. Yang masuk `main`: seluruh P0–P4, `docs/testing-realpg.md`, `npm run pg:up`, `RevocationWatcher` (TC-15 terukur 91 ms). **Yang TIDAK masuk:** importer (B1), DnD native (T-18), uji dua jendela browser, `T-PERF1` di Supabase. |
 
 ---
 
