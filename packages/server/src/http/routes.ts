@@ -35,12 +35,32 @@ export interface Deps {
 
 const IDEMPOTENCY_HEADER = "idempotency-key";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Wajib untuk semua non-GET (api-contract.md §6, A6).
+ *
+ * KENAPA BENTUKNYA DIPERIKSA: `idempotency_keys.operation_id` bertipe `uuid`.
+ * Tanpa pemeriksaan ini, kunci sembarang ("demo-1") sampai ke PostgreSQL dan
+ * muncul sebagai `invalid input syntax for type uuid` -> **500**, bukan 400.
+ * Ditemukan saat menjalankan demo: klien yang salah tidak boleh melihat galat
+ * server, dan operator tidak boleh disuruh mencari log untuk kesalahan klien.
+ *
+ * CATATAN KONTRAK: api-contract.md §6 menyebut `Idempotency-Key: <ULID>`,
+ * sedangkan kolomnya `uuid` (ENT-19). UUIDv7 memenuhi maksud yang sama
+ * (unik, terurut waktu, 16 byte) dan sudah menjadi bentuk `operation_id`
+ * di seluruh sistem, jadi UUID yang diterima — bukan dua bentuk sekaligus.
+ */
 function requireIdempotencyKey(ctx: { req: { headers: Record<string, unknown> } }): string {
   const raw = ctx.req.headers[IDEMPOTENCY_HEADER];
   const key = Array.isArray(raw) ? raw[0] : raw;
-  // Wajib untuk semua non-GET (api-contract.md §6, A6).
-  if (typeof key !== "string" || key.length < 8) {
+  if (typeof key !== "string" || key.length === 0) {
     throw ApiError.validation("header Idempotency-Key wajib diisi", "Idempotency-Key");
+  }
+  if (!UUID_RE.test(key)) {
+    throw ApiError.validation(
+      "Idempotency-Key harus UUID (mis. UUIDv7)", "Idempotency-Key",
+    );
   }
   return key;
 }

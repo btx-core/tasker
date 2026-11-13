@@ -19,6 +19,7 @@ const ST_BACKLOG = "0190f000-0000-7000-8000-0000000000d1";
 const ST_DOING = "0190f000-0000-7000-8000-0000000000d3";
 const TASK = "0190f000-0000-7000-8000-0000000000e1";
 const TOKEN = "tok-member";
+const KEY = () => uuidv7();
 const TOKEN_VIEWER = "tok-viewer";
 const TOKEN_REVOKED = "tok-revoked";
 
@@ -162,6 +163,13 @@ describe("PATCH /v1/tasks/:id — kontrak HTTP", () => {
       body: "{bukan json",
     });
     expect(res.status).toBe(400);
+  });
+
+  it("Idempotency-Key bukan UUID -> 400, BUKAN 500", async () => {
+    const r = await call("PATCH", `/v1/tasks/${TASK}`, { body: { title: "x" }, idem: "demo-key-123" });
+    expect(r.status).toBe(400);
+    expect(r.body["code"]).toBe("validation.failed");
+    expect(r.body["field"]).toBe("Idempotency-Key");
   });
 
   it("PATCH sah -> 200, versi naik, seq terisi", async () => {

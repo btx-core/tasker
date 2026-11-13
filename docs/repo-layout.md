@@ -219,3 +219,18 @@ Sebuah PR dianggap selesai hanya bila **semua** terpenuhi. Ini yang membuat doku
 - Uji per lapisan: `testing-strategy.md`
 - Katalog string: `i18n.md`
 - DCO & lisensi: `architecture.md` ADR-014
+
+## 11. Penyimpangan yang dicatat (bukan kelalaian)
+
+Fase P1–P4 mencatat penyimpangan berikut di `todo.md`, bukan menyembunyikannya:
+
+| # | Penyimpangan | Alasan | Kapan ditinjau |
+| :--- | :--- | :--- | :--- |
+| T-11 | HTTP memakai router bawaan Node, bukan Fastify | Membuktikan jalur tulis lebih dulu; tiap dependensi menambah permukaan | sebelum P4 selesai / saat CORS & multipart dibutuhkan |
+| T-16 | WebSocket server belum ada (`ws` belum ditambahkan) | Konsisten dengan T-11; logika real-time tetap diuji tanpa soket | **sebelum klaim real-time** |
+| T-18 | Kartu dipindah lewat `<select>`, bukan drag-and-drop | Membuktikan PATCH optimistis + rollback + konflik lebih dulu | sebelum R0 dinilai |
+| — | UI dirender sebagai string + `esbuild`, tanpa framework | Fase ini menguji kontrak, bukan memilih pustaka UI | saat komponen mulai butuh state lokal yang kompleks |
+
+**Yang TIDAK boleh disimpulkan** dari penyimpangan di atas: bahwa framework atau dependensi tidak akan pernah dipakai. Yang disimpulkan: **belum ada alasan terukur untuk memakainya sekarang**, dan menambahkannya tanpa alasan membuat setiap bug berikutnya lebih sulit dilacak.
+
+Bundel UI saat ini **3,8 KB gzip**. Setiap framework yang ditambahkan kelak harus dipertanggungjawabkan terhadap angka itu.

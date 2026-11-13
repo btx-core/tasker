@@ -10,6 +10,13 @@ import { resolveAuth, type SessionRepo } from "./authz/session.js";
 
 export interface AppDeps extends Deps {
   sessions: SessionRepo;
+  /**
+   * Penangan untuk path yang bukan rute API (mis. berkas statis UI).
+   * Mengembalikan true bila sudah ditangani. Dipakai `dev-server` supaya UI
+   * dan API berbagi SATU origin — browser pengguna tidak boleh memanggil
+   * localhost, dan satu origin menghilangkan kebutuhan CORS.
+   */
+  staticHandler?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
 }
 
 export interface App {
@@ -30,6 +37,9 @@ export function createApp(deps: AppDeps): App {
       const url = new URL(req.url ?? "/", "http://localhost");
       const found = router.match(req.method ?? "GET", url.pathname);
       if (!found) {
+        if (deps.staticHandler && !url.pathname.startsWith("/v1/")) {
+          if (await deps.staticHandler(req, res, url)) return;
+        }
         sendJson(res, 404, {
           code: "resource.not_found",
           message: "Endpoint tidak ditemukan",
