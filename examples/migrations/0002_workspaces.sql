@@ -36,3 +36,9 @@ CREATE UNIQUE INDEX uq_workspaces_slug
 CREATE INDEX ix_workspaces_purge
   ON workspaces (deleted_at)
   WHERE deleted_at IS NOT NULL;
+
+-- CATATAN: workspace demo TIDAK dibuat oleh migrasi (migrations.md §6).
+-- Pembuatan workspace demo adalah perintah CLI terpisah, dan tanda
+-- `is_demo` sengaja TIDAK dijadikan kolom: ia dapat diturunkan dari slug
+-- berawalan `demo-`, dan kolom yang hanya dipakai satu fitur adalah
+-- kolom yang akan salah ditebak maknanya enam bulan kemudian.

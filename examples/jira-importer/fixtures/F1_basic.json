@@ -1,0 +1,21 @@
+{
+  "version": 1, "type": "doc",
+  "content": [
+    {"type":"paragraph","content":[
+      {"type":"text","text":"Login gagal saat SSO aktif. "},
+      {"type":"text","text":"Kritis","marks":[{"type":"strong"}]},
+      {"type":"text","text":", lihat "},
+      {"type":"text","text":"runbook","marks":[{"type":"link","attrs":{"href":"https://contoh.id/runbook"}}]},
+      {"type":"text","text":" dan "},
+      {"type":"text","text":"config.yaml","marks":[{"type":"code"}]},
+      {"type":"text","text":"."}]},
+    {"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Langkah reproduksi"}]},
+    {"type":"orderedList","attrs":{"order":1},"content":[
+      {"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Buka halaman login"}]}]},
+      {"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Aktifkan SSO"}]},
+        {"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Lewat "},{"type":"text","text":"admin","marks":[{"type":"code"}]}]}]}]}]}
+    ]},
+    {"type":"codeBlock","attrs":{"language":"bash"},"content":[{"type":"text","text":"curl -X POST /auth/sso -d '{\"ok\":false}'"}]},
+    {"type":"rule"}
+  ]
+}

@@ -265,9 +265,9 @@ Semua angka performa di dokumen ini diukur terhadap dataset ini. Klaim tanpa dat
 | **NFR-001** | Ketersediaan (profil Standar, single node) | 99,5% / bulan | Probe eksternal 60 s |
 | **NFR-002** | Ketersediaan (profil HA) | 99,9% / bulan | Probe eksternal 30 s |
 | **NFR-003** | Latensi interaksi UI (aksi task: ubah status/assignee/prioritas) | **p95 < 100 ms, p99 < 250 ms** | Pengukuran klien: waktu dari input sampai frame berubah |
-| **NFR-004** | Latensi API baca (`GET` board/list, 100 item) | p95 < 200 ms, p99 < 500 ms | Metrik server, tanpa cache klien |
+| **NFR-004** | Latensi API baca (`GET` board/list, 100 item) | p95 < 200 ms, p99 < 500 ms | Metrik server, tanpa cache klien. **Terukur 2026-11-12: 7 query board = p95 0,23 ms pada dataset 50 rb task/tim** (`perf-validation.md`) — bukan risiko, jangan optimasi lebih dulu. |
 | **NFR-005** | Latensi API tulis (mutasi task) | p95 < 300 ms, p99 < 800 ms | Metrik server |
-| **NFR-006** | Pencarian (palette, ≤ 5.000 hasil, dataset §7.1) | p95 < 150 ms, p99 < 400 ms | Metrik server-side |
+| **NFR-006** | Pencarian (palette, ≤ 5.000 hasil, dataset §7.1) | p95 < 150 ms, p99 < 400 ms | Metrik server-side. **Terukur: p95 32 ms**; perencanaan query 14,4 ms > eksekusi 13,2 ms → prepared statement wajib (`api-contract.md`). |
 | **NFR-007** | Propagasi real-time (user A ubah → user B lihat) | p95 < 1 s, p99 < 3 s | Uji dua klien terjadwal |
 | **NFR-008** | Waktu muat awal (cold, PWA, jaringan 40 ms) | p75 < 2,5 s *interactive*, bundle awal < 300 KB gzip | Lighthouse/CI budget |
 | **NFR-009** | Render List 10.000 baris | ≥ 50 fps saat scroll; render awal < 1 s | Uji performa CI |

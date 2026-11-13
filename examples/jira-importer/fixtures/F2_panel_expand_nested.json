@@ -1,0 +1,14 @@
+{
+  "version":1,"type":"doc","content":[
+    {"type":"panel","attrs":{"panelType":"warning"},"content":[
+      {"type":"paragraph","content":[{"type":"text","text":"Jangan deploy Jumat."}]},
+      {"type":"expand","attrs":{"title":"Alasan"},"content":[
+        {"type":"paragraph","content":[{"type":"text","text":"Tidak ada yang siaga."}]},
+        {"type":"bulletList","content":[
+          {"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Tim libur"}]},
+            {"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Kecuali on-call"}]}]}]}]}
+        ]}
+      ]}
+    ]}
+  ]
+}

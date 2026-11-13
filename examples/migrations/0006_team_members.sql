@@ -20,7 +20,16 @@ CREATE TABLE team_members (
 
   CONSTRAINT pk_team_members PRIMARY KEY (id),
   CONSTRAINT fk_team_members_team FOREIGN KEY (team_id) REFERENCES teams (id),
-  CONSTRAINT fk_team_members_user FOREIGN KEY (user_id) REFERENCES users (id),
+  -- FK komposit: user HARUS sudah jadi anggota workspace ini (T2).
+  -- Klaim lama "tidak bisa dinyatakan sebagai FK" terlalu luas. Yang tidak
+  -- bisa dinyatakan adalah bagian "AKTIF" (revoked_at bisa berubah tanpa
+  -- menyentuh baris ini) - itu tetap urusan aplikasi + job pemeriksa.
+  -- Tetapi bagian "punya workspace_members" sepenuhnya bisa, dan itu yang
+  -- mencegah mayoritas bug nyata: seseorang ditambahkan ke tim di workspace
+  -- yang belum pernah ia masuki.
+  CONSTRAINT fk_team_members_workspace_member
+    FOREIGN KEY (workspace_id, user_id)
+    REFERENCES workspace_members (workspace_id, user_id),
   CONSTRAINT ck_team_members_role CHECK (role IN (1, 2, 3, 4))
 );
 

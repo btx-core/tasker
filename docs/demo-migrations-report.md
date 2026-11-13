@@ -42,7 +42,7 @@ Ekstensi ada — tetapi di schema **`extensions`**, bukan `public`. Pada Supabas
 
 **Ini temuan yang tidak akan pernah muncul dari membaca dokumen.** Satu baris `search_path` menyelamatkan instalasi pelanggan pertama.
 
-### T2 — Constraint yang "tidak bisa dinyatakan di DB" ternyata bisa, dan yang dianggap bisa ternyata tidak
+### T2 — Constraint yang "tidak bisa dinyatakan di DB" ternyata bisa, dan yang dianggap bisa ternyata tidak · **SUDAH DIPERBAIKI**
 
 `data-model.md` menyatakan beberapa invariant "tidak bisa dinyatakan sebagai CHECK". Eksekusi nyata memisahkan tiga kategori yang sebelumnya tercampur:
 
@@ -52,6 +52,19 @@ Ekstensi ada — tetapi di schema **`extensions`**, bukan `public`. Pada Supabas
 | **INV-08** status/label satu tim | butuh trigger | ✅ **Benar, tapi trigger saja tidak cukup** — lihat T3 |
 | **INV-01** setiap workspace ≥ 1 owner | butuh aplikasi + job | ✅ **Benar.** Tidak bisa dinyatakan sebagai CHECK (butuh agregat lintas baris) |
 | **INV-03** `team_members` butuh `workspace_members` aktif | butuh aplikasi + job | ⚠️ **Sebenarnya bisa ditegakkan lebih kuat** — FK komposit ke `workspace_members (workspace_id, user_id)` akan mencegah baris tanpa keanggotaan sama sekali. Yang tidak bisa adalah "keanggotaan *aktif*" (karena `revoked_at` bisa berubah tanpa menyentuh baris ini). Perbedaan ini perlu ditulis ulang, karena yang pertama mencegah mayoritas bug |
+
+#### T2 lanjutan — perbaikan diterapkan & diuji
+
+Migrasi `0006_team_members.sql` diperbaiki: ditambahkan FK komposit
+`(workspace_id, user_id) → workspace_members (workspace_id, user_id)`. Diuji pada PostgreSQL nyata:
+
+| Uji | Hasil |
+| :--- | :--- |
+| Anggota workspace ditambahkan ke tim | **DITERIMA** (benar — tidak memblokir alur sah) |
+| Orang luar (tanpa `workspace_members`) ditambahkan ke tim | **DITOLAK** `fk_team_members_workspace_member` |
+| User yang `workspace_members.revoked_at` terisi didaftarkan ke tim | **DITERIMA** — sesuai rancangan: bagian "aktif" tetap urusan aplikasi + job pemeriksa |
+
+Baris ketiga itu penting dan sengaja **tidak** diperkuat: memaksanya masuk ke DB akan membutuhkan trigger yang membaca `revoked_at` pada setiap insert/update — menambah biaya pada jalur tulis yang panas untuk kasus yang jarang. Yang dipilih: FK mencegah **mayoritas** bug (seseorang masuk tim di workspace yang belum pernah ia masuki), aplikasi + job menangani sisanya.
 
 ### T3 — Trigger penjaga tim bekerja, dan pesannya penting
 

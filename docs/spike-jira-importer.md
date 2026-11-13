@@ -165,6 +165,14 @@ Enam berkas ADF yang **menurut saya** paling mungkin merusak konverter. Ini diba
 
 ---
 
+## 6b. Status implementasi: konverter sudah ada
+
+Konverter ADF → Markdown **sudah diimplementasikan** di `examples/jira-importer/adf-to-markdown.mjs` dan diuji pada 6 fixture (`spike-jira-importer.md` §6). Hasil lengkap: **`spike-jira-results.md`**.
+
+Ringkas: 72 node, **0 teks hilang**, 3 L4 (macro/media) — dan **tiga bug nyata** ditemukan hanya karena kode dijalankan (mention `@@budi`, label panel yang menyuntik Markdown, pemeriksa teks-hilang yang keliru). Itu bagian spike yang bisa diselesaikan tanpa data pelanggan.
+
+**Gate tidak berubah:** `S1`, `S3`, `S4`, `S6` tetap tertutup tanpa berkas Jira nyata (`import-contract.md` §7).
+
 ## 7. Rencana kerja (setelah data tersedia)
 
 | Hari | Kegiatan | Keluaran |

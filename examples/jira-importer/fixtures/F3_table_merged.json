@@ -1,0 +1,24 @@
+{
+  "version":1,"type":"doc","content":[
+    {"type":"table","attrs":{"isNumberColumnEnabled":false,"layout":"default"},"content":[
+      {"type":"tableRow","content":[
+        {"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Lingkungan"}]}]},
+        {"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Status"}]}]},
+        {"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Catatan"}]}]}
+      ]},
+      {"type":"tableRow","content":[
+        {"type":"tableCell","attrs":{"colspan":1},"content":[{"type":"paragraph","content":[{"type":"text","text":"Produksi"}]}]},
+        {"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"OK"}]}]},
+        {"type":"tableCell","content":[
+          {"type":"paragraph","content":[{"type":"text","text":"Pakai | pipe"}]},
+          {"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"a"}]}]},
+            {"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"b"}]}]}]}
+        ]}
+      ]},
+      {"type":"tableRow","content":[
+        {"type":"tableCell","attrs":{"colspan":2},"content":[{"type":"paragraph","content":[{"type":"text","text":"Gabungan dua kolom"}]}]},
+        {"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"x"}]}]}
+      ]}
+    ]}
+  ]
+}

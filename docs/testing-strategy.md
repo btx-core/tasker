@@ -83,6 +83,8 @@ Mengacu `email.md` §8 dan `attachments-media.md` §8: T-EMAIL1…11 (mode `none
 ### 4.1e Dukungan & i18n (`T-SUP`, `T-I18N`)
 
 - `T-SUP1…T-SUP5` (`support.md` §8): bundle diagnostik tanpa canary & bisa dipratinjau, `trace_id` dapat disalin & ditemukan di log, `kelindan doctor` mendeteksi 6 kegagalan konfigurasi, halaman status admin, daftar masalah diketahui tersedia.
+- **`T-PERF1`**: board 7 kolom pada dataset acuan (50 rb task/tim) — p95 < 800 ms (`NFR-004`). **Sudah diukur 2026-11-12: p95 = 0,23 ms** (`perf-validation.md`).
+- **`T-PERF2`**: pencarian 5 kata pada dataset acuan — p95 < 150 ms (`NFR-006`). **Sudah diukur: p95 = 32 ms**, dengan catatan perencanaan 14,4 ms > eksekusi 13,2 ms → prepared statement wajib.
 - **`T-MIG11`** (dari temuan T1, `demo-migrations-report.md`): preflight menolak instalasi yang ekstensinya berada di schema non-`public` **kecuali** `search_path` sudah mencakupnya. Uji ini lahir dari kegagalan nyata pada PostgreSQL 17.11.
 - **`T-MIG12`**: setiap constraint baru punya uji **negatif** yang membuktikan ia menolak — bukan hanya uji positif yang membuktikan insert berhasil. Constraint tanpa uji negatif dianggap belum ada.
 - `T-I18N1…T-I18N8` (`i18n.md` §7): tidak ada string tampilan di komponen, tidak ada kunci yatim, tidak ada format tanggal manual, due date tidak bergeser antar zona, relative time benar, `code` tidak diterjemahkan, kamus per-rute menjaga `UX-B1`, tata letak tahan +40%.

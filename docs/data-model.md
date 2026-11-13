@@ -278,7 +278,7 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 | `(workspace_id, due_date)` parsial `deleted_at IS NULL AND completed_at IS NULL` | Tampilan tenggat & pengingat. |
 | `(workspace_id, goal_id)` parsial `goal_id IS NOT NULL` | Progress Goal (R1). |
 | `(workspace_id, cycle_id)` parsial `cycle_id IS NOT NULL` | Cycle view (R1). |
-| GIN `description_tsv` | Pencarian (ADR-005). |
+| GIN `description_tsv` | Pencarian (ADR-005). **CATATAN IMPLEMENTASI (temuan P1, `perf-validation.md`):** GIN tunggal pada `tsvector` membuat filter `workspace_id` jatuh sebagai *post-filter* (diverifikasi: 5000 baris diperiksa, 4548 heap block dibaca untuk satu kata umum). Index pencarian wajib memuat `workspace_id` — `USING gin (workspace_id, description_tsv)` dengan `btree_gin`, atau index terpisah + batas hasil yang tegas. |
 | `(title gin_trgm_ops)` | Pencarian judul dengan salah ketik. |
 
 **Constraint tambahan (impor):** UNIQUE `(workspace_id, source_system, source_instance_id, source_id)` parsial WHERE `source_system IS NOT NULL` — idempotensi impor (`import-contract.md` IC-8).
