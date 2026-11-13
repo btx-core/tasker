@@ -428,6 +428,47 @@ Detail matriks ada di `rbac.md`. ADR ini hanya menetapkan strukturnya.
 
 ---
 
+### ADR-021 — Email adalah jalur sekunder asinkron yang boleh mati dengan jujur
+
+**Status:** Diterima.
+
+**Konteks.** Pilot T2 akan melaporkan "produknya rusak" bila email tidak sampai — padahal penyebabnya konfigurasi (SMTP belum diisi, domain tanpa SPF/DKIM, `From` memakai Gmail). Ini masalah **kebijakan & transport**, bukan fitur. Tanpa keputusan, tim akan diarahkan memperbaiki "bug email" yang sebenarnya salah konfigurasi.
+
+**Keputusan.**
+
+1. **Tiga mode eksplisit**: `none` (default), `smtp`, `relay`. Dalam mode `none`, aplikasi **tidak mencoba** mengirim dan **tidak membuat job email**.
+2. **Email tidak pernah dikirim di dalam request HTTP.** Semua lewat `jobs` (ADR-008). SMTP yang menggantung 30 s tidak boleh menyentuh latensi mutasi (`NFR-005`).
+3. **Tidak ada alur inti yang gagal karena email mati**: undangan menghasilkan tautan yang bisa dibagikan; reset mandiri nonaktif dengan pernyataan jelas + jalur admin; verifikasi email nonaktif (dicatat sebagai penurunan keamanan).
+4. **Aktivasi transport wajib lolos preflight**, termasuk **penolakan keras** `From` pada domain email publik (gmail/yahoo/hotmail) — karena itu merusak reputasi domain pelanggan sendiri.
+5. **Batas kirim** 6/jam dan 20/hari per penerima untuk kategori non-keamanan; perubahan task memakai digest, bukan email per kejadian.
+6. **Email tidak pernah membawa lampiran** dan subjek tidak memuat isi pekerjaan (privasi layar kunci).
+7. **Subjek/isi tidak boleh membocorkan konten**; alamat penerima disimpan terenkripsi + hash (`email.md` §7).
+
+**Konsekuensi.** Produk jujur tentang batasnya: email yang gagal terlihat di panel admin, bukan hilang di log. Deteksi keluhan spam (FBL/DSN) **belum** ada di R0 dan dinyatakan terbuka. Detail: `email.md`.
+
+---
+
+### ADR-022 — Media: kompresi & thumbnail di klien, byte asli bukan jalur tampil
+
+**Status:** Diterima.
+
+**Konteks.** Satu screenshot 4 MB per kartu, 200 kartu, membatalkan janji "ringan" (`ux-principles.md`) dan `NFR-009`. Tanpa aturan, tim akan menambahkan "lazy load" yang tidak menyelesaikan masalah dasarnya: byte besar tetap dikirim.
+
+**Keputusan.**
+
+1. **Tiga representasi**: thumbnail (≤ 30 KB, 256 px), versi tampil (≤ 400 KB, 2.048 px), asli (opsional). Board **hanya** memakai blurhash/warna + indikator jumlah lampiran.
+2. **Kompresi & thumbnail dibuat di klien** sebelum unggah. Server menjadi **jaring pengaman** (`media.derive`), bukan jalur utama — karena kompresi di klien menghindari mengirim byte besar lewat jaringan lambat.
+3. **EXIF/GPS dihapus**; orientasi di-*bake* ke piksel.
+4. **HEIC → WebP** di klien (tanpa ini, pengguna iOS tidak bisa mengunggah foto — terlihat seperti produk rusak).
+5. **SVG tidak dirender inline**; HTML/SVG disajikan dari **domain storage terpisah** dengan `nosniff` + `Content-Disposition: attachment`.
+6. **`complete` memverifikasi objek di server** (ada, ukuran, tipe, dimensi). Klien tidak dipercaya.
+7. **Tidak ada ACL publik** pada objek mana pun; hanya presigned URL berumur pendek.
+8. `storage_key` tunggal diganti tiga kolom (`thumb_key`, `display_key`, `original_key`) agar tidak ada kebingungan "key mana yang dipakai".
+
+**Konsekuensi.** Biaya storage pelanggan naik sedikit (hingga 2–3 salinan untuk gambar besar), ditukar dengan latensi board yang tidak bergantung pada ukuran lampiran. Detail: `attachments-media.md`.
+
+---
+
 ## 3. Aliran data utama
 
 ### 3.1 Mutasi task (jalur paling kritis)

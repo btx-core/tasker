@@ -10,6 +10,13 @@ Direktori ini berisi dokumen **desain** (bukan implementasi). Tidak ada kode di 
 | [`architecture.md`](./architecture.md) | Keputusan arsitektur (ADR-001…ADR-014), topologi, profil deployment, model ancaman cache klien | **Aktif** — sumber kebenaran teknis |
 | [`data-model.md`](./data-model.md) | Kamus data Fase 1 siap-DDL: entitas, kolom, constraint, index, invariant, state machine | **Aktif** — sumber kebenaran skema |
 | [`rbac.md`](./rbac.md) | Katalog aksi, peran, matriks permission, invariant, kasus uji | **Aktif** — sumber kebenaran otorisasi |
+| [`email.md`](./email.md) | Email keluar: 3 mode transport, deliverability, batas kirim, bounce/suppression, privasi subjek | **Aktif** — mengikat |
+| [`attachments-media.md`](./attachments-media.md) | Lampiran & media: kompresi/thumbnail di klien, EXIF, HEIC, SVG, domain storage, batas | **Aktif** — mengikat |
+| [`ux-principles.md`](./ux-principles.md) | Prinsip UX & anggaran "ringan" terukur: `UX-1…UX-10`, `UX-B1…UX-B10`, pintasan kanonik, anti-pola | **Aktif** — mengikat |
+| [`editor-decision.md`](./editor-decision.md) | Keputusan editor: Markdown subset + editor visual terbatas, keamanan, konflik, batas, uji `T-EDIT` | **Aktif** — mengikat |
+| [`migrations.md`](./migrations.md) | Aturan migrasi: forward-only, expand/contract, header wajib, runner, jalur upgrade self-host | **Aktif** — mengikat |
+| [`api-contract.md`](./api-contract.md) | Kontrak API v1: bentuk respons, model error + enum `code`, patch field-level, idempotensi, paginasi cursor, 404 vs 403, real-time, lampiran | **Aktif** — mengikat |
+| [`testing-strategy.md`](./testing-strategy.md) | Strategi pengujian: piramida, lingkungan, uji wajib `T-*`, uji konkurensi/chaos, uji performa, gerbang rilis | **Aktif** — mengikat |
 | [`gaps-analysis.md`](./gaps-analysis.md) | Analisis celah jujur: 12 hal yang belum ada, dampaknya, dan urutan penutupannya | **Aktif** — rencana kerja |
 | [`naming-and-validation.md`](./naming-and-validation.md) | Keputusan nama (Kelindan) + hasil validasi skema pada PostgreSQL nyata (V1–V11) | **Aktif** |
 | [`decisions-r0.md`](./decisions-r0.md) | Keputusan operasi & go-to-market: model operasi, 4 peran, backup/restore, tahap GTM, batas open-core | **Aktif** — mengikat |
@@ -25,8 +32,12 @@ Dokumen v0 tidak lagi menjadi acuan. Di mana dokumen v0 dan direktori ini berbed
 3. `architecture.md` — ADR-001 (arsitektur data klien), ADR-002 (hierarki), ADR-003 (otorisasi) adalah tiga keputusan fondasi; sisanya turunan.
 4. `data-model.md` + `rbac.md` — spesifikasi yang langsung dipakai saat menulis migration dan middleware.
 5. `decisions-r0.md` — siapa mengoperasikan, bagaimana backup dibuktikan, dan kapan boleh diumumkan.
-6. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
-7. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
+6. `api-contract.md` + `testing-strategy.md` — bentuk API dan cara membuktikannya (menutup C2 & C3).
+7. `migrations.md` + `editor-decision.md` — dua bloker terakhir sebelum kode (menutup C1 & C6).
+8. `email.md` + `attachments-media.md` — dua celah yang akan terlihat sebagai "produk rusak" bila dilewati (C4 & C5).
+9. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
+10. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
+11. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
 
 ## Konvensi ID
 
@@ -39,6 +50,8 @@ Semua requirement, invariant, aksi, dan keputusan punya ID stabil agar bisa diru
 - `ENT-xx`, `INV-xx` — entitas dan invariant data (`data-model.md`)
 - `AC-xx` — action ID pada katalog aksi (`rbac.md`)
 - `TC-xx` — test case otorisasi (`rbac.md`)
+- `T-xx` — uji wajib pada gerbang pipeline (`testing-strategy.md` §4–§6)
+- `UX-n`, `UX-B*`, `UX-E*` — prinsip, anggaran, dan elemen UX yang mengikat (`ux-principles.md`)
 
 Aturan traceability: setiap `FR-*` harus merujuk minimal satu `AC-*` dan satu `INV-*` (jika menyentuh data). PR yang menutup `FR-*` wajib menyebut ID-nya.
 

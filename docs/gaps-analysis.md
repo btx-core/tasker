@@ -5,13 +5,13 @@
 
 **Cara membaca.** Setiap celah punya: dampak bila tidak ditutup, kapan paling murah ditutup, dan apakah sudah ada keputusan yang menutupinya (bila ya, celahnya hanya "belum ditulis" — bukan "belum diputuskan"). Bedanya penting: yang kedua jauh lebih berbahaya.
 
-**Ringkasan:** desain ini cukup untuk mulai R0, tetapi **belum cukup untuk dikatakan siap produksi**. Celah terbesar bukan pada fitur (lingkup sudah sengaja dipotong), melainkan pada **proses**: bagaimana perubahan skema dan API disebarkan, bagaimana kualitas diukur, dan bagaimana pengguna berpindah dari alat lama. Tiga hal itu tidak punya pemilik di dokumen mana pun saat ini.
+**Ringkasan:** per 2026-11-12, **seluruh bloker kode sudah tertutup** — C1 (`migrations.md`), C2 (`api-contract.md`), C3 (`testing-strategy.md`), C6 (`editor-decision.md`) — dan tujuan "ramah, mudah, ringan" sudah menjadi anggaran terukur (`ux-principles.md`). C4 (email) dan C5 (media) juga sudah ditutup (`email.md`, `attachments-media.md`). Yang tersisa: C9 (kebijakan keamanan & supply chain), C11 (onboarding), C7/C8/C10/C12 (spesifikasi belum lengkap).
 
 ---
 
 ## 1. Celah yang paling berbahaya (harus ditutup sebelum kode pertama)
 
-### C1 — Skema database belum punya aturan perubahan (migrasi, seed, rollback)
+### ~~C1 — Skema database belum punya aturan perubahan~~ → **DITUTUP** oleh `migrations.md`
 
 **Yang ada:** `NFR-012` (migrasi maju saja, expand/contract, tidak mengunci tabel > 5 s) — satu baris SLO.
 **Yang tidak ada:** strategi migrasi, konvensi penamaan/penomoran migration, data seed (status default per tim, label awal), mekanisme backfill untuk kolom baru, dan **cara menguji migrasi** pada dataset realistis.
@@ -20,9 +20,9 @@
 
 **Kapan murah:** sekarang (menulis dokumen), sebelum ada satu migration.
 
-**Status:** **belum diputuskan**. Perlu `docs/migrations.md`.
+**Status:** **SELESAI** — `migrations.md` v1.0: forward-only, expand/contract 3 rilis, header wajib + checksum, larangan operasi berbahaya + penggantinya, seed lewat katalog aplikasi (bukan migrasi), runner dengan preflight/dry-run, jalur upgrade self-host, dan T-MIG1…T-MIG10.
 
-### C2 — Kontrak API belum ditulis
+### ~~C2 — Kontrak API belum ditulis~~ → **DITUTUP** oleh `api-contract.md`
 
 **Yang ada:** `FR-209` (API publik REST + webhook), `FR-114` (ekspor), dan ADR-015 (idempotensi/versi/konflik).
 **Yang tidak ada:** bentuk konkret kontrak — konvensi error (kode, bentuk body, trace ID), bentuk paginasi (cursor), penamaan field, kebijakan versi API (`/v1`), batas rate limit per endpoint, bentuk patch (JSON Merge Patch vs daftar operasi), dan contoh request/response.
@@ -31,9 +31,9 @@
 
 **Kapan murah:** sebelum endpoint pertama ditulis.
 
-**Status:** **belum diputuskan** — hanya prinsipnya (ADR-015). Perlu `docs/api-contract.md`.
+**Status:** **SELESAI** — `docs/api-contract.md` v1.0 (bentuk respons, RFC 9457 + enum `code` tertutup, 404 vs 403, patch field-level, idempotensi wajib, paginasi cursor, dua bentuk field, real-time, lampiran 2 langkah, deprecation).
 
-### C3 — Tidak ada rencana pengujian yang mengikat
+### ~~C3 — Tidak ada rencana pengujian yang mengikat~~ → **DITUTUP** oleh `testing-strategy.md`
 
 **Yang ada:** 25 test case otorisasi (`rbac.md` §6), gate CI yang disebut di beberapa ADR, aturan "endpoint baru wajib ikut TC-14".
 **Yang tidak ada:** piramida pengujian, target cakupan per lapisan, cara menguji konkurensi (yang justru inti ADR-015), cara menguji real-time (dua klien), cara menguji migrasi, uji chaos jaringan untuk optimistic UI, dan keputusan tentang environment uji (apakah ada staging? siapa yang menjalankannya?).
@@ -42,38 +42,38 @@
 
 **Kapan murah:** sebelum R0 berjalan setengah.
 
-**Status:** **belum diputuskan**. Perlu `docs/testing-strategy.md`. Ini celah yang paling sering saya sesalkan di proyek nyata.
+**Status:** **SELESAI** — `docs/testing-strategy.md` v1.0 (4 lapisan, L2 wajib memakai pooler transaction mode, uji wajib `T-SCHEMA`…`T-CHAOS`, uji performa dengan gerbang regresi 20%, gerbang rilis 7 butir, dan §9 yang menyatakan apa yang **tidak** dibuktikan).
 
 ---
 
 ## 2. Celah arsitektural (keputusan belum diambil)
 
-### C4 — Strategi email keluar tidak ada
+### ~~C4 — Strategi email keluar tidak ada~~ → **DITUTUP** oleh `email.md`
 
 **Yang ada:** `FR-206` (inbox, email hanya untuk mention/penugasan).
 **Yang tidak ada:** provider SMTP, konfigurasi self-host, masalah deliverability (SPF/DKIM/DMARC), penanganan bounce, batas kirim, template email, dan mode "tanpa email sama sekali" untuk instalasi internal.
 
 **Dampak:** email adalah satu-satunya jalur notifikasi ke luar aplikasi. Instalasi self-host yang emailnya masuk spam akan membuat pengguna mengira produknya rusak. Ini masalah operasional nomor dua setelah backup.
 
-**Status:** **belum diputuskan**. Perlu ADR + bagian deployment.
+**Status:** **SELESAI** — `email.md` v1.0 + ADR-021 (tiga mode transport, preflight dengan penolakan keras `From` domain publik, batas kirim & digest, tidak ada lampiran email, tabel `email_messages`/`email_suppressions`, `T-EMAIL1…T-EMAIL11`).
 
-### C5 — Tidak ada strategi gambar/lampiran sisi klien
+### ~~C5 — Tidak ada strategi gambar/lampiran sisi klien~~ → **DITUTUP** oleh `attachments-media.md`
 
 **Yang ada:** ADR-009 (presigned URL, batas 100 MB), batas 50 lampiran/task.
 **Yang tidak ada:** kompresi gambar di klien, thumbnail (kalau tidak ada, board akan memuat file 8 MB per kartu), unggahan berlanjut (resumable) untuk file besar di jaringan buruk, dan penanganan unggahan ganda.
 
 **Dampak:** satu screenshot 8 MB × 20 kartu = board yang tidak bisa dipakai. Ini bertabrakan langsung dengan janji kecepatan (`NFR-003`), dan akan ditemukan pada hari pertama pilot.
 
-**Status:** **belum diputuskan**. Perlu ADR kecil.
+**Status:** **SELESAI** — `attachments-media.md` v1.0 + ADR-022 (tiga representasi, kompresi & thumbnail di klien, EXIF/GPS dihapus, HEIC→WebP, SVG tidak inline, domain storage terpisah, `complete` diverifikasi server, `T-MEDIA1…T-MEDIA12`).
 
-### C6 — Editor teks: belum dipilih, padahal ini keputusan besar
+### ~~C6 — Editor teks: belum dipilih~~ → **DITUTUP** oleh `editor-decision.md`
 
 **Yang ada:** "Markdown terbatas" untuk deskripsi & komentar; ADR-015 butir 4 soal konflik editor.
 **Yang tidak ada:** apakah pengguna mengetik Markdown mentah, atau WYSIWYG? Pilihan ini menentukan: model konflik (teks polos vs struktur dokumen), cara menyimpan (teks vs JSON), cara mengimpor ADF, dan biaya keseluruhan.
 
 **Dampak:** memilih WYSIWYG setelah 6 bulan berarti migrasi data dan penulisan ulang editor. Memilih markdown mentah berarti pengguna non-IT (persona P3) menolak produk — dan P3 adalah justru pembeda produk ini.
 
-**Status:** **belum diputuskan**, dan ini salah satu yang paling menentukan. Rekomendasi saya: markdown dengan toolbar (bukan WYSIWYG penuh) pada R0, lalu evaluasi. Perlu ADR.
+**Status:** **SELESAI** — `editor-decision.md` v1.0: **Markdown subset + editor visual terbatas** (bukan WYSIWYG penuh, bukan Markdown mentah), `body_format` untuk migrasi format, larangan HTML mentah, konflik eksplisit tanpa merge otomatis, batas keras, `T-EDIT1…T-EDIT8`, dan triger terukur untuk pindah ke WYSIWYG.
 
 ### C7 — Definisi "sereal-time" per objek belum lengkap
 
@@ -170,19 +170,31 @@ Berdasarkan "biaya bila ditemukan terlambat" ÷ "biaya menutup sekarang":
 
 | Urutan | Celah | Kapan | Kenapa di urutan ini |
 | :---: | :--- | :--- | :--- |
-| **1** | **C3** (strategi pengujian) | sebelum R0 menulis endpoint | Bug termahal di arsitektur ini hanya muncul pada uji konkurensi & gagal-jaringan. Menulis uji ini belakangan = menulis ulang. |
-| **2** | **C2** (kontrak API) | sebelum endpoint pertama | Bentuk error & paginasi yang tidak konsisten tidak bisa diperbaiki tanpa breaking change. |
-| **3** | **C1** (aturan migrasi) | sebelum migration pertama | Menentukan apakah produk ini bisa di-upgrade sama sekali. |
-| **4** | **C6** (editor) | sebelum menulis UI task | Menentukan model data deskripsi dan seluruh pengalaman persona P3. |
-| **5** | **C4** (email) | sebelum pilot T2 | Pilot tanpa email = pengguna tidak tahu ada penugasan. |
-| **6** | **C5** (gambar) | sebelum pilot T2 | Langsung terlihat dan merusak janji kecepatan. |
+| ~~**1**~~ | ~~**C3** (strategi pengujian)~~ **SELESAI** | — | `testing-strategy.md` |
+| ~~**2**~~ | ~~**C2** (kontrak API)~~ **SELESAI** | — | `api-contract.md` |
+| ~~**3**~~ | ~~**C1** (aturan migrasi)~~ **SELESAI** | — | `migrations.md` |
+| ~~**4**~~ | ~~**C6** (editor)~~ **SELESAI** | — | `editor-decision.md` |
+| ~~**5**~~ | ~~**C4** (email)~~ **SELESAI** | — | `email.md` |
+| ~~**6**~~ | ~~**C5** (gambar)~~ **SELESAI** | — | `attachments-media.md` |
 | **7** | **C9** (keamanan/supply chain) | sebelum rilis publik T3 | Syarat agar sysadmin mau menjalankannya. |
 | **8** | **C10, C11, C12** | sebelum T2 | Murah sekarang, mahal setelah ada pengguna. |
 | **9** | **C7, C8** | selama R0 | Perlu diselesaikan bersamaan dengan implementasi real-time & pencarian. |
 
-**Rekomendasi tegas:** jangan mulai menulis kode sebelum **1, 2, 3, 4** selesai sebagai dokumen. Empat dokumen itu (masing-masing 2–4 halaman) menentukan bentuk kode yang akan bertahan bertahun-tahun. Sisanya bisa berjalan paralel dengan implementasi.
+**Status gerbang:** tidak ada lagi dokumen yang memblokir penulisan kode. Empat dokumen pemblokir sudah selesai dan saling merujuk. Yang tersisa (C7, C8, C9, C10, C11, C12) berjalan paralel dengan implementasi R0, dengan tenggat mengikuti urutan T2/T3 di `decisions-r0.md`.
 
 ---
+
+## 6.1 Celah yang ditutup karena tujuan produk "ramah, mudah, ringan"
+
+Tujuan itu sebelumnya hanya kalimat. Sekarang punya hakim: `ux-principles.md`.
+
+| Yang dulu tidak ada | Sekarang |
+| :--- | :--- |
+| Angka untuk "ringan" | `UX-B1…UX-B10` (bundle < 300 KB, interaksi p95 < 100 ms, memori tab < 250 MB, ≤ 3 permintaan saat buka board) — **memblokir merge** |
+| Definisi "mudah" | `UX-B8` (buat task ≤ 2 interaksi) + sesi uji pengguna per rilis: **≥ 4 dari 5 tugas tanpa bantuan** oleh persona HR |
+| Daftar elemen wajib | `UX-E1…UX-E10` (undo, indikator sinkronisasi, empty state, palette) |
+| Anti-pola | 10 larangan eksplisit (modal untuk form panjang, toast untuk error penting, warna saja, tombol disembunyikan karena 403) |
+| Konflik pintasan | Tabel kanonik; `Ctrl+K` selalu command palette, `Ctrl+Shift+K` untuk tautan |
 
 ## 7. Satu hal yang tidak bisa ditutup dengan dokumen
 
