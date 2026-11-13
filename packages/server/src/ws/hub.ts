@@ -13,7 +13,8 @@
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer as WSS } from "ws";
-import type { Client } from "pg";
+
+import type { SqlClient } from "../http/routes.js";
 import { ApiError, type TeamRole } from "@kelindan/shared";
 import {
   capTeams, isBroadcastable, parseClientMessage,
@@ -22,7 +23,18 @@ import {
 } from "./protocol.js";
 
 export interface HubDeps {
-  db: () => Promise<Client>;
+  /**
+   * `ListenClient`, BUKAN `Client` penuh (T-49) dan bukan pula `SqlClient`.
+   *
+   * `LISTEN` membutuhkan dua hal yang tidak dimiliki `SqlClient`: event
+   * `notification` dan koneksi yang TIDAK dikembalikan ke pool selama hidup.
+   * Menuntut `Client` membuat `pg.Pool` tidak bisa dipasang karena TypeScript
+   * meminta ~30 properti koneksi yang tidak relevan; menuntut `SqlClient` akan
+   * berbohong tentang `on`. Jadi tipenya menyebut tepat kemampuan yang dipakai.
+   */
+  db: () => Promise<SqlClient & {
+    on(event: "notification", cb: (msg: { channel: string; payload?: string }) => void): void;
+  }>;
   /** Peran pada tim; null = bukan anggota (langganan DITOLAK). */
   teamRoleOf: (userId: string, workspaceId: string, teamId: string) => Promise<TeamRole | null>;
   auth: (req: IncomingMessage) => Promise<{ userId: string; workspaceId: string } | null>;
@@ -80,7 +92,9 @@ export class Hub {
   private pingTimer: NodeJS.Timeout | null = null;
   /** `ws` dipakai HANYA untuk sisi server; tidak ada dependensi lain. */
   private wss = new WSS({ noServer: true });
-  private listenClient: Client | null = null;
+  private listenClient: (SqlClient & {
+    on(event: "notification", cb: (msg: { channel: string; payload?: string }) => void): void;
+  }) | null = null;
   private channel = "kelindan_changes";
 
   constructor(private deps: HubDeps) {}

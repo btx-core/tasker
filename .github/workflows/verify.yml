@@ -109,7 +109,9 @@ jobs:
         # berbahaya daripada merah.
         run: |
           npx vitest run packages/db/src/tasks/concurrency.realpg.test.ts packages/db/src/auth \
-            packages/server/src/ws --reporter=json --outputFile=/tmp/realpg.json
+            packages/server/src/ws packages/server/src/db-pool.realpg.test.ts \
+            packages/server/src/http/pool-http.realpg.test.ts \
+            --reporter=json --outputFile=/tmp/realpg.json
       - name: gerbang "jangan hijau palsu"
         run: node scripts/test-gate.mjs /tmp/realpg.json --no-skipped
 

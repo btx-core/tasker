@@ -11,3 +11,4 @@ export * from "./ws/protocol.js";
 export * from "./ws/hub.js";
 export * from "./ws/revocation.js";
 export * from "./test-deps.js";
+export * from "./db-pool.js";

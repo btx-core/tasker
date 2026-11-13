@@ -19,7 +19,7 @@ import {
   listChecklist, listComments, loadComment, updateChecklistItem, updateComment,
 } from "@kelindan/db";
 import type { Handler, Router } from "./router.js";
-import type { Deps } from "./routes.js";
+import { withClient, type Deps } from "./routes.js";
 
 const MAX_COMMENT_LEN = 16_384;
 
@@ -70,12 +70,11 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
     if (!can(actor, ACTIONS.TASK_VIEW)) {
       throw new ApiError(403, "auth.forbidden", "Tidak berwenang melihat komentar");
     }
-    const client = await deps.db();
-    const comments = await listComments(client, {
+    const comments = await withClient(deps, (client) => listComments(client, {
       workspaceId: auth.workspaceId,
       taskId: ctx.params["id"]!,
       limit: Number(ctx.url.searchParams.get("limit") ?? 100) || 100,
-    });
+    }));
     return { status: 200, body: { comments } };
   }) as Handler);
 
@@ -90,13 +89,12 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
       throw new ApiError(403, "auth.forbidden", "Tidak berwenang berkomentar");
     }
     const body = parseCommentBody((ctx.body as { body?: unknown } | undefined)?.body);
-    const client = await deps.db();
-    const comment = await createComment(client, {
+    const comment = await withClient(deps, (client) => createComment(client, {
       workspaceId: auth.workspaceId,
       taskId: ctx.params["id"]!,
       authorId: auth.userId,
       body,
-    });
+    }));
     return { status: 201, body: { comment } };
   }) as Handler);
 
@@ -111,7 +109,7 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
    */
   router.add("PATCH", "/v1/comments/:id", (async (ctx) => {
     const auth = requireAuth(ctx);
-    const client = await deps.db();
+    return withClient(deps, async (client) => {
     const existing = await loadComment(client, auth.workspaceId, ctx.params["id"]!);
     if (!existing) throw ApiError.notFound("Komentar");
 
@@ -139,11 +137,12 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
       workspaceId: auth.workspaceId, commentId: existing.id, editorId: auth.userId, body,
     });
     return { status: 200, body: { comment } };
+    });
   }) as Handler);
 
   router.add("DELETE", "/v1/comments/:id", (async (ctx) => {
     const auth = requireAuth(ctx);
-    const client = await deps.db();
+    return withClient(deps, async (client) => {
     const existing = await loadComment(client, auth.workspaceId, ctx.params["id"]!);
     if (!existing) throw ApiError.notFound("Komentar");
 
@@ -173,6 +172,7 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
     });
     // 200, bukan 204: klien perlu tahu ini idempoten (placeholdernya sudah ada).
     return { status: 200, body: { deleted: true, already_deleted: result.alreadyDeleted } };
+    });
   }) as Handler);
 
   /* ------------------------------------------------------------------ */
@@ -185,10 +185,9 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
     if (!can(actor, ACTIONS.TASK_VIEW)) {
       throw new ApiError(403, "auth.forbidden", "Tidak berwenang melihat checklist");
     }
-    const client = await deps.db();
-    const items = await listChecklist(client, {
+    const items = await withClient(deps, (client) => listChecklist(client, {
       workspaceId: auth.workspaceId, taskId: ctx.params["id"]!,
-    });
+    }));
     const done = items.filter((i) => i.is_done).length;
     return { status: 200, body: { items, progress: { done, total: items.length } } };
   }) as Handler);
@@ -207,10 +206,9 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
     if (content.length === 0 || content.length > 500) {
       throw ApiError.validation("isi checklist harus 1–500 karakter", "content");
     }
-    const client = await deps.db();
-    const item = await addChecklistItem(client, {
+    const item = await withClient(deps, (client) => addChecklistItem(client, {
       workspaceId: auth.workspaceId, taskId: ctx.params["id"]!, content,
-    });
+    }));
     return { status: 201, body: { item } };
   }) as Handler);
 
@@ -220,7 +218,7 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
       content?: unknown; is_done?: unknown;
       assignee_id?: unknown; due_date?: unknown;
     };
-    const client = await deps.db();
+    return withClient(deps, async (client) => {
 
     /**
      * Peran dicek lewat INDUK. `updateChecklistItem` sendiri memastikan item
@@ -253,11 +251,12 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
       workspaceId: auth.workspaceId, itemId: ctx.params["id"]!, patch: patch as never,
     });
     return { status: 200, body: { item } };
+    });
   }) as Handler);
 
   router.add("DELETE", "/v1/checklist/:id", (async (ctx) => {
     const auth = requireAuth(ctx);
-    const client = await deps.db();
+    return withClient(deps, async (client) => {
     const { rows } = await client.query<{ task_id: string }>(
       "SELECT task_id FROM checklist_items WHERE id = $1", [ctx.params["id"]!],
     );
@@ -269,5 +268,6 @@ export function registerCollabRoutes(router: Router, deps: Deps): void {
     }
     await deleteChecklistItem(client, { workspaceId: auth.workspaceId, itemId: ctx.params["id"]! });
     return { status: 204, body: undefined };
+    });
   }) as Handler);
 }

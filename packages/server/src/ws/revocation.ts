@@ -17,11 +17,11 @@
  * langganan per pengguna. Angka itu dipilih agar **batas 5 detik** punya
  * margin 5×, bukan karena 1 detik itu istimewa.
  */
-import type { Client } from "pg";
+import type { SqlClient } from "../http/routes.js";
 import type { Hub } from "./hub.js";
 
 export interface RevocationWatcherDeps {
-  db: () => Promise<Client>;
+  db: () => Promise<SqlClient>;
   hub: Hub;
   /** Berapa sering memeriksa. Default 1000 ms. */
   intervalMs?: number;
@@ -50,6 +50,21 @@ export class RevocationWatcher {
   /** Baca keanggotaan aktif; kembalikan yang BARU hilang sejak panggilan lalu. */
   async poll(): Promise<Array<Membership & { at: Date }>> {
     const client = await this.deps.db();
+    /**
+     * KONEKSI WAJIB DIKEMBALIKAN (T-49). `poll()` berjalan TIAP DETIK.
+     *
+     * Bug yang diperbaiki: dulu koneksi tidak pernah dilepas. Pada `Client`
+     * tunggal itu tidak terlihat — selalu koneksi yang sama. Begitu `deps.db`
+     * memakai `pg.Pool`, setiap jajak meminjam satu koneksi dan menahannya
+     * selamanya: sepuluh detik cukup untuk menghabiskan pool `max: 10`, dan
+     * SETELAH ITU SEMUA ENDPOINT mengembalikan 503 `server.busy`.
+     *
+     * Gejalanya menyesatkan — login gagal padahal login tidak ada hubungannya
+     * dengan pencabutan — dan hanya muncul pada jalur `DATABASE_URL` yang
+     * sebelumnya belum pernah dijalankan sama sekali.
+     */
+    const release = (client as { release?: () => void }).release;
+    try {
     const res = await client.query<{ team_id: string; user_id: string }>(
       `SELECT team_id, user_id FROM team_members WHERE revoked_at IS NULL`,
     );
@@ -72,6 +87,9 @@ export class RevocationWatcher {
     }
     this.known = active;
     return revoked;
+    } finally {
+      if (typeof release === "function") release.call(client);
+    }
   }
 
   /** Jalankan pemeriksaan berkala. Idempoten: panggilan kedua diabaikan. */

@@ -9,8 +9,8 @@
  * TIDAK ADA `total`. Total mahal pada dataset besar dan menyesatkan — ia
  * berubah di antara dua halaman. Endpoint hitung terpisah bila perlu.
  */
-import type { Client } from "pg";
 import { ApiError } from "@kelindan/shared";
+import type { SqlClient } from "../client.js";
 
 export const ORDER_KEYS = ["updated_at", "created_at", "due_date", "number"] as const;
 export type OrderKey = (typeof ORDER_KEYS)[number];
@@ -164,7 +164,7 @@ export function parseLimit(params: URLSearchParams): number {
   return n;
 }
 
-export async function listTasks(client: Client, p: ListParams): Promise<ListResult> {
+export async function listTasks(client: SqlClient, p: ListParams): Promise<ListResult> {
   const order = p.order ?? { key: "updated_at", desc: true };
   const filter = p.filter ?? {};
   const limit = Math.min(Math.max(p.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);

@@ -12,13 +12,17 @@
  *  3. Password di log -> modul ini tidak pernah mencatat apa pun. Log ada di
  *     lapisan HTTP dan hanya memuat trace_id + jenis kejadian.
  */
-import type { Client } from "pg";
+import type { SqlClient } from "../http/routes.js";
 import { ApiError, ERROR_CODES } from "@kelindan/shared";
 import { createSession, type IssuedSession } from "@kelindan/db";
 import { burnPasswordTime, verifyPassword } from "./password.js";
 
 export interface LoginDeps {
-  db: () => Promise<Client>;
+  /**
+   * `SqlClient` (T-49): login hanya memakai `query`, dan rute auth kini bisa
+   * meminjamkan koneksi dari `pg.Pool` per request.
+   */
+  db: () => Promise<SqlClient>;
   /**
    * Pemeriksaan tambahan setelah password terbukti benar. Disuntikkan supaya
    * use-case tidak bergantung pada skema workspace, dan supaya kebijakan
@@ -64,7 +68,16 @@ export async function login(
     throw ApiError.validation(MSG_BAD_INPUT);
   }
 
+  /**
+   * Seluruh alur login memakai SATU klien yang diambil sekali, dan klien itu
+   * WAJIB dikembalikan ke pool. Tanpa `finally`, setiap login yang gagal
+   * (password salah, email belum diverifikasi) membocorkan satu koneksi —
+   * dan justru jalur gagal yang paling sering terjadi saat penyerang menebak
+   * password. Pool akan habis tepat ketika sistem sedang diserang.
+   */
   const db = await deps.db();
+  const release = (db as { release?: () => void }).release;
+  try {
   const { rows } = await db.query<{
     id: string;
     email: string;
@@ -125,6 +138,9 @@ export async function login(
     ...session,
     user: { id: user.id, displayName: user.display_name, workspaceId },
   };
+  } finally {
+    if (typeof release === "function") release.call(db);
+  }
 }
 
 /**

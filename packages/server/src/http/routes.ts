@@ -3,7 +3,6 @@
  * Tidak ada logika bisnis, tidak ada SQL. Itu yang membuat ADR-015
  * ("tidak boleh ada handler yang menyimpang") bisa ditegakkan.
  */
-import type { Client } from "pg";
 import {
   applyTaskPatch,
   createTask,
@@ -26,11 +25,63 @@ import {
 import type { Handler, RequestContext, Router } from "./router.js";
 import type { ResolvedAuth } from "../authz/session.js";
 
+/**
+ * Klien SQL yang boleh dipakai use-case.
+ *
+ * KENAPA BUKAN `Client` saja (T-49): `Deps.db` dulu mengembalikan `Client`,
+ * sehingga satu-satunya cara memasangnya adalah SATU koneksi untuk seluruh
+ * proses. Pada beban nyata itu berarti setiap request mengantre di belakang
+ * request lain — persis kebalikan dari "ringan pada ribuan pengguna". Tipe ini
+ * sengaja hanya mengekspos `query`, karena itulah satu-satunya kemampuan yang
+ * dipakai lapisan `@kelindan/db`; dengan begitu `Pool`, `PoolClient`, `Client`,
+ * dan adaptor PGlite semuanya memenuhi tanpa pemaksaan tipe.
+ */
+export interface SqlClient {
+  query<R = Record<string, unknown>>(
+    sql: string, params?: readonly unknown[],
+  ): Promise<{ rows: R[]; rowCount: number | null }>;
+}
+
 export interface Deps {
-  db: () => Promise<Client>;
+  /**
+   * Mengambil klien SQL.
+   *
+   * `() => Promise<SqlClient>` dipertahankan sebagai bentuknya justru karena
+   * pool butuh `release` setelah dipakai: implementasi yang memakai `Pool`
+   * mengembalikan koneksi ke pool saat `release` dipanggil, dan `acquire`
+   * menjamin itu terjadi. Lihat `withClient` di bawah.
+   */
+  db: () => Promise<SqlClient>;
   /** Peran user di tim pemilik task; null bila bukan anggota. */
   teamRoleOf: (userId: string, workspaceId: string, teamId: string) => Promise<TeamRole | null>;
   teamIdOfTask: (workspaceId: string, taskId: string) => Promise<string | null>;
+}
+
+/**
+ * Menjalankan `fn` dengan satu klien SQL, dan MENJAMIN koneksinya kembali ke
+ * pool sesudahnya (T-49).
+ *
+ * KENAPA HELPER INI ADA: dengan `Pool`, lupa memanggil `release()` tidak
+ * menghasilkan galat — hasilnya pool yang perlahan habis sampai server
+ * berhenti melayani. Itu kegagalan yang muncul berjam-jam kemudian, di
+ * produksi, tanpa jejak ke baris yang lupa. Karena `Deps.db` hanya
+ * mengembalikan klien, tidak ada tempat lain yang bisa menjamin ini; jadi
+ * seluruh akses DB lewat satu pintu.
+ *
+ * `release` dipanggil di `finally`, termasuk saat handler melempar galat
+ * (mis. 409 konflik versi) — jalur yang paling mudah terlupa.
+ */
+export async function withClient<T>(
+  deps: Pick<Deps, "db">,
+  fn: (client: SqlClient) => Promise<T>,
+): Promise<T> {
+  const client = await deps.db();
+  const rel = (client as { release?: () => void }).release;
+  try {
+    return await fn(client);
+  } finally {
+    if (typeof rel === "function") rel.call(client);
+  }
 }
 
 const IDEMPOTENCY_HEADER = "idempotency-key";
@@ -96,8 +147,7 @@ export function registerRoutes(router: Router, deps: Deps): void {
       throw new ApiError(403, "auth.forbidden", "Tidak berwenang mengubah task");
     }
 
-    const client = await deps.db();
-    const result = await applyTaskPatch(client, {
+    const result = await withClient(deps, (client) => applyTaskPatch(client, {
       actor,
       taskId,
       patch: parsed.patch!,
@@ -105,7 +155,7 @@ export function registerRoutes(router: Router, deps: Deps): void {
       operationId,
       endpoint: "PATCH /v1/tasks/:id",
       traceId: ctx.traceId,
-    });
+    }));
 
     return {
       status: 200,
@@ -156,16 +206,15 @@ export function registerRoutes(router: Router, deps: Deps): void {
       throw new ApiError(403, "auth.forbidden", "Tidak berwenang membuat task");
     }
 
-    const client = await deps.db();
-    const task = await createTask(client, {
+    const task = await withClient(deps, (client) => createTask(client, {
       actor,
       teamId,
-      title: body["title"],
+      title: body["title"] as string,
       ...(typeof body["description"] === "string" || body["description"] === null
         ? { description: body["description"] as string | null }
         : {}),
       ...(typeof body["priority"] === "number" ? { priority: body["priority"] } : {}),
-    });
+    }));
 
     return {
       status: 201,
@@ -187,11 +236,11 @@ export function registerRoutes(router: Router, deps: Deps): void {
     const limitRaw = ctx.url.searchParams.get("limit");
     if (limitRaw !== null) parseLimit(new URLSearchParams(`limit=${limitRaw}`));
 
-    const board = await loadBoard(
-      await deps.db(),
+    const board = await withClient(deps, (client) => loadBoard(
+      client,
       { workspaceId: auth.workspaceId, teamId },
       limitRaw !== null ? Number(limitRaw) : undefined,
-    );
+    ));
     void role;
     return { status: 200, body: board };
   }) as Handler);
@@ -211,14 +260,14 @@ export function registerRoutes(router: Router, deps: Deps): void {
     if (filter.assigneeId === "me") filter.assigneeId = auth.userId;
 
     const cursor = params.get("cursor");
-    const result = await listTasks(await deps.db(), {
+    const result = await withClient(deps, (client) => listTasks(client, {
       workspaceId: auth.workspaceId,
       teamId,
       order,
       filter,
       limit,
       ...(cursor !== null ? { cursor } : {}),
-    });
+    }));
     return {
       status: 200,
       body: {
@@ -230,8 +279,8 @@ export function registerRoutes(router: Router, deps: Deps): void {
 
   router.add("GET", "/v1/tasks/:id", (async (ctx) => {
     const auth = ctx.auth!;
-    const client = await deps.db();
-    const detail = await loadTaskDetail(client, { workspaceId: auth.workspaceId }, ctx.params["id"]!);
+    const detail = await withClient(deps, (client) =>
+      loadTaskDetail(client, { workspaceId: auth.workspaceId }, ctx.params["id"]!));
     if (!detail) throw ApiError.notFound("Task");
 
     // Terlihat belum tentu boleh: cek keanggotaan tim pemilik task.

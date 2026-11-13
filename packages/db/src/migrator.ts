@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Client } from "pg";
+import type { SqlClient } from "./client.js";
 
 export interface MigrationFile {
   version: number;
@@ -144,7 +144,7 @@ export interface PreflightResult {
  * "type citext does not exist".
  */
 export async function preflight(
-  client: Client,
+  client: SqlClient,
   requiredExtensions: readonly string[],
 ): Promise<PreflightResult> {
   // BUG YANG DITEMUKAN UJI INTEGRASI: `SHOW server_version` mengembalikan
@@ -183,7 +183,7 @@ export async function preflight(
   const sp = await client.query<{ sp: string }>(
     "SELECT current_setting('search_path') AS sp",
   );
-  const searchPath = (sp.rows[0]!.sp ?? "").split(",").map((s) => s.trim());
+  const searchPath = (sp.rows[0]!.sp ?? "").split(",").map((s: string) => s.trim());
 
   // Schema ekstensi yang dipakai tipe harus terjangkau search_path.
   const needed = new Set(Object.values(extensionSchemas));
@@ -227,7 +227,7 @@ const LOCK_KEY = 7_313_337; // advisory lock khusus runner
  */
 export const REQUIRED_EXTENSIONS = ["citext", "pg_trgm"] as const;
 
-export async function migrate(client: Client, opts: MigrateOptions): Promise<MigrateResult> {
+export async function migrate(client: SqlClient, opts: MigrateOptions): Promise<MigrateResult> {
   const log = opts.log ?? (() => {});
   const files = await loadMigrations(opts.dir);
   // pgcrypto TIDAK diminta: skema tidak memakainya (UUID dibuat aplikasi,

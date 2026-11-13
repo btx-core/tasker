@@ -7,7 +7,6 @@
  * "Tidak boleh ada handler yang menyimpang" (ADR-015 konsekuensi). Karena itu
  * seluruh urutan ada di SATU fungsi, dan handler HTTP hanya memanggil ini.
  */
-import type { Client } from "pg";
 import {
   ApiError,
   can,
@@ -19,6 +18,7 @@ import {
   type TaskPatch,
 } from "@kelindan/shared";
 import type { ChangeRecord, TaskRow } from "./types.js";
+import type { SqlClient } from "../client.js";
 
 export interface ApplyPatchParams {
   actor: Actor;
@@ -49,7 +49,7 @@ const EVENT_KIND = {
 } as const;
 
 export async function applyTaskPatch(
-  client: Client,
+  client: SqlClient,
   p: ApplyPatchParams,
 ): Promise<ApplyPatchResult> {
   const fields = Object.keys(p.patch) as (keyof TaskPatch)[];
@@ -267,7 +267,7 @@ export async function applyTaskPatch(
  * workspace yang sama memang harus berurutan, jadi ini bukan kontensi yang
  * bisa dihindari tanpa kehilangan urutan.
  */
-async function nextSeq(client: Client, workspaceId: string): Promise<number> {
+async function nextSeq(client: SqlClient, workspaceId: string): Promise<number> {
   const r = await client.query<{ seq: number }>(
     `UPDATE workspaces SET seq_next = seq_next + 1
       WHERE id = $1 RETURNING seq_next - 1 AS seq`,
@@ -277,7 +277,7 @@ async function nextSeq(client: Client, workspaceId: string): Promise<number> {
   return Number(r.rows[0]!.seq);
 }
 
-async function categoryOf(client: Client, statusId: string): Promise<number | null> {
+async function categoryOf(client: SqlClient, statusId: string): Promise<number | null> {
   const r = await client.query<{ category: number }>(
     `SELECT category FROM statuses WHERE id = $1`,
     [statusId],
@@ -285,7 +285,7 @@ async function categoryOf(client: Client, statusId: string): Promise<number | nu
   return r.rowCount ? r.rows[0]!.category : null;
 }
 
-async function readCanonical(client: Client, id: string, workspaceId: string): Promise<TaskRow | null> {
+async function readCanonical(client: SqlClient, id: string, workspaceId: string): Promise<TaskRow | null> {
   const r = await client.query<TaskRow>(
     `SELECT id, workspace_id, team_id, number, title, description, status_id,
             assignee_id, priority, effort, due_date, version, deleted_at
@@ -296,7 +296,7 @@ async function readCanonical(client: Client, id: string, workspaceId: string): P
 }
 
 async function recordIdempotency(
-  client: Client,
+  client: SqlClient,
   p: ApplyPatchParams,
   hash: string,
   status: number,

@@ -7,14 +7,21 @@
  */
 import { ApiError, ERROR_CODES } from "@kelindan/shared";
 import { findSession, revokeAllSessions, revokeSession, touchSession } from "@kelindan/db";
-import type { Client } from "pg";
+
 import type { Router } from "./router.js";
+import { withClient, type SqlClient } from "./routes.js";
 import { clearSessionCookie, login, sessionCookie } from "../auth/login.js";
 import { hashToken } from "../authz/session.js";
 import { readSessionCookie } from "../authz/session.js";
 
 export interface AuthRouteDeps {
-  db: () => Promise<Client>;
+  /**
+   * `SqlClient`, bukan `Client` (T-49). Rute auth dulu menuntut `Client`,
+   * sehingga satu-satunya cara memasangnya adalah satu koneksi untuk seluruh
+   * proses — padahal login adalah endpoint yang paling sering dipanggil
+   * bersamaan saat jam sibuk.
+   */
+  db: () => Promise<SqlClient>;
   /** false pada deployment tanpa TLS (dev lokal). Default true. */
   cookieSecure?: boolean;
 }
@@ -60,8 +67,7 @@ export function registerAuthRoutes(router: Router, deps: AuthRouteDeps): void {
    */
   router.add("POST", "/v1/auth/logout", async (ctx) => {
     const token = readSessionCookie(ctx.req.headers.cookie);
-    const db = await deps.db();
-    if (token) await revokeSession(db, token);
+    if (token) await withClient(deps, (db) => revokeSession(db, token));
     return {
       status: 204,
       body: undefined,
@@ -76,8 +82,7 @@ export function registerAuthRoutes(router: Router, deps: AuthRouteDeps): void {
   router.add("POST", "/v1/auth/logout-all", async (ctx) => {
     const auth = ctx.auth;
     if (!auth) throw new ApiError(401, ERROR_CODES.UNAUTHENTICATED, "Sesi tidak sah");
-    const db = await deps.db();
-    const count = await revokeAllSessions(db, auth.userId);
+    const count = await withClient(deps, (db) => revokeAllSessions(db, auth.userId));
     return {
       status: 200,
       body: { revoked: count },
@@ -92,12 +97,13 @@ export function registerAuthRoutes(router: Router, deps: AuthRouteDeps): void {
   router.add("GET", "/v1/me", async (ctx) => {
     const auth = ctx.auth;
     if (!auth) throw new ApiError(401, ERROR_CODES.UNAUTHENTICATED, "Sesi tidak sah");
-    const db = await deps.db();
-    const { rows } = await db.query<{ display_name: string; email: string }>(
-      "SELECT display_name, email FROM users WHERE id = $1",
-      [auth.userId],
-    );
-    const user = rows[0];
+    const user = await withClient(deps, async (db) => {
+      const { rows } = await db.query<{ display_name: string; email: string }>(
+        "SELECT display_name, email FROM users WHERE id = $1",
+        [auth.userId],
+      );
+      return rows[0];
+    });
     if (!user) throw ApiError.notFound("Pengguna");
     return {
       status: 200,
@@ -117,9 +123,10 @@ export function registerAuthRoutes(router: Router, deps: AuthRouteDeps): void {
   router.add("POST", "/v1/auth/touch", async (ctx) => {
     const auth = ctx.auth;
     if (!auth) throw new ApiError(401, ERROR_CODES.UNAUTHENTICATED, "Sesi tidak sah");
-    const db = await deps.db();
-    await touchSession(db, auth.sessionId);
-    const row = await findSession(db, readSessionCookie(ctx.req.headers.cookie) ?? "");
+    const row = await withClient(deps, async (db) => {
+      await touchSession(db, auth.sessionId);
+      return findSession(db, readSessionCookie(ctx.req.headers.cookie) ?? "");
+    });
     return {
       status: 200,
       body: { expires_at: row?.expiresAt.toISOString() ?? null },

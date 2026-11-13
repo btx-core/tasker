@@ -178,6 +178,27 @@ export function toErrorBody(err: unknown, traceId: string): { status: number; bo
     };
     return { status: err.status, body: b };
   }
+  /**
+   * Pool koneksi penuh (T-49). Ini BUKAN galat internal: tidak ada bug, dan
+   * mencoba lagi dalam sedetik biasanya berhasil. Sebelum ini, kehabisan
+   * koneksi tampil sebagai `internal.error` 500 — klien menyerah dan pengguna
+   * mengetik ulang datanya, padahal tidak ada yang rusak.
+   *
+   * Dideteksi dari pesan karena `pg` tidak memberi kode galat terstruktur untuk
+   * kasus ini. Pencocokan sengaja sempit (dua frasa yang stabil di `pg`) supaya
+   * tidak menelan galat lain yang kebetulan menyebut "connection".
+   */
+  const msg = err instanceof Error ? err.message : "";
+  if (/timeout exceeded when trying to connect|remaining connection slots are reserved|too many clients already/i.test(msg)) {
+    return {
+      status: 503,
+      body: {
+        code: ERROR_CODES.SERVER_BUSY,
+        message: "Server sedang sibuk, coba lagi sebentar lagi",
+        trace_id: traceId,
+      },
+    };
+  }
   // Error tak terduga: JANGAN bocorkan pesan internal ke klien.
   return {
     status: 500,
