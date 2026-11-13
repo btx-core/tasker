@@ -1,0 +1,33 @@
+{
+  "name": "kelindan",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate": "node --experimental-strip-types packages/db/src/cli.ts migrate",
+    "migrate:dry-run": "node --experimental-strip-types packages/db/src/cli.ts migrate --dry-run",
+    "lint:boundary": "node scripts/lint-boundary.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run lint:boundary && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^2.1.9"
+  }
+}
