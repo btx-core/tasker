@@ -2,6 +2,15 @@
 
 Direktori ini berisi dokumen **desain** (bukan implementasi). Tidak ada kode di sini. Tujuannya: setiap keputusan yang mahal diubah sudah diputuskan dan dicatat alasannya, sehingga engineer bisa mulai menulis kode tanpa rapat desain tambahan.
 
+## Status desain
+
+Per 2026-11-12, **seluruh 12 celah desain sudah ditutup** (`gaps-analysis.md`), dan dua dokumen prasyarat kode sudah ada (`repo-layout.md`, `versioning.md`). **Tidak ada lagi dokumen yang memblokir penulisan kode.** Yang tersisa bukan dokumen:
+
+1. **Spike importer S1/S4** — butuh berkas ekspor Jira nyata (`spike-jira-importer.md` §2).
+2. **Dua keputusan pemilik** — komitmen waktu & anggaran infrastruktur (`decisions-r0.md` §7).
+3. **Validasi performa pada dataset acuan penuh** — butuh lingkungan uji, bukan dokumen (`prd.md` §7.1).
+4. **Empat peran operasional + pengganti** yang benar-benar menjalankan tugasnya (`decisions-r0.md` D-02).
+
 ## Status dokumen
 
 | Dokumen | Isi | Status |
@@ -10,6 +19,14 @@ Direktori ini berisi dokumen **desain** (bukan implementasi). Tidak ada kode di 
 | [`architecture.md`](./architecture.md) | Keputusan arsitektur (ADR-001…ADR-014), topologi, profil deployment, model ancaman cache klien | **Aktif** — sumber kebenaran teknis |
 | [`data-model.md`](./data-model.md) | Kamus data Fase 1 siap-DDL: entitas, kolom, constraint, index, invariant, state machine | **Aktif** — sumber kebenaran skema |
 | [`rbac.md`](./rbac.md) | Katalog aksi, peran, matriks permission, invariant, kasus uji | **Aktif** — sumber kebenaran otorisasi |
+| [`repo-layout.md`](./repo-layout.md) | **Dokumen A** — tata letak repo, batas modul, kontrak perintah, konfigurasi, definisi "selesai" PR, alur git | **Aktif** — prasyarat kode |
+| [`versioning.md`](./versioning.md) | **Dokumen B** — SemVer & janji tiap angka, saluran rilis, format catatan rilis, deprecation, konvensi kontribusi | **Aktif** — mengikat |
+| [`support.md`](./support.md) | Dukungan: kanal & janji respons, triase P1–P5, bundle diagnostik aman, batas dukungan | **Aktif** — mengikat |
+| [`i18n.md`](./i18n.md) | Internasionalisasi: satu bahasa tapi terpusat, format tanggal/zona waktu, triger bahasa kedua | **Aktif** — mengikat |
+| [`security-policy.md`](./security-policy.md) | Kebijakan keamanan & supply chain: versi didukung, SLA respons, alur kerentanan, kebijakan dependensi, artefak rilis, insiden | **Aktif** — mengikat |
+| [`onboarding.md`](./onboarding.md) | Menit pertama: instalasi, undangan, empty state (naskah), pratinjau impor, nada penulisan | **Aktif** — mengikat |
+| [`realtime-and-search.md`](./realtime-and-search.md) | Perilaku real-time (K1/K2/K3, tepi kasus) & pencarian (bobot, query, izin, palette) | **Aktif** — mengikat |
+| [`spike-jira-importer.md`](./spike-jira-importer.md) | Rancangan spike importer: spesifikasi ADF→Markdown, matriks pemetaan, fixture pegangan, kebutuhan data | **Aktif** — sebagian menunggu data |
 | [`email.md`](./email.md) | Email keluar: 3 mode transport, deliverability, batas kirim, bounce/suppression, privasi subjek | **Aktif** — mengikat |
 | [`attachments-media.md`](./attachments-media.md) | Lampiran & media: kompresi/thumbnail di klien, EXIF, HEIC, SVG, domain storage, batas | **Aktif** — mengikat |
 | [`ux-principles.md`](./ux-principles.md) | Prinsip UX & anggaran "ringan" terukur: `UX-1…UX-10`, `UX-B1…UX-B10`, pintasan kanonik, anti-pola | **Aktif** — mengikat |
@@ -35,9 +52,14 @@ Dokumen v0 tidak lagi menjadi acuan. Di mana dokumen v0 dan direktori ini berbed
 6. `api-contract.md` + `testing-strategy.md` — bentuk API dan cara membuktikannya (menutup C2 & C3).
 7. `migrations.md` + `editor-decision.md` — dua bloker terakhir sebelum kode (menutup C1 & C6).
 8. `email.md` + `attachments-media.md` — dua celah yang akan terlihat sebagai "produk rusak" bila dilewati (C4 & C5).
-9. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
-10. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
-11. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
+9. `security-policy.md` — yang ditanyakan sysadmin sebelum produk ini boleh dipasang (C9).
+10. `realtime-and-search.md` + `onboarding.md` — perilaku tepi real-time, pencarian, dan menit pertama (C7, C8, C11).
+11. `spike-jira-importer.md` — apa yang bisa diselesaikan tanpa data Jira dan apa yang **tidak** (S1–S6).
+12. `support.md` + `i18n.md` — dua celah terakhir (C10, C12).
+13. `repo-layout.md` + `versioning.md` — **baca sebelum commit pertama**: struktur repo, batas modul, definisi "selesai", dan aturan rilis.
+14. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
+15. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
+16. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
 
 ## Konvensi ID
 

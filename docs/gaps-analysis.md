@@ -5,7 +5,24 @@
 
 **Cara membaca.** Setiap celah punya: dampak bila tidak ditutup, kapan paling murah ditutup, dan apakah sudah ada keputusan yang menutupinya (bila ya, celahnya hanya "belum ditulis" — bukan "belum diputuskan"). Bedanya penting: yang kedua jauh lebih berbahaya.
 
-**Ringkasan:** per 2026-11-12, **seluruh bloker kode sudah tertutup** — C1 (`migrations.md`), C2 (`api-contract.md`), C3 (`testing-strategy.md`), C6 (`editor-decision.md`) — dan tujuan "ramah, mudah, ringan" sudah menjadi anggaran terukur (`ux-principles.md`). C4 (email) dan C5 (media) juga sudah ditutup (`email.md`, `attachments-media.md`). Yang tersisa: C9 (kebijakan keamanan & supply chain), C11 (onboarding), C7/C8/C10/C12 (spesifikasi belum lengkap).
+**Ringkasan:** per 2026-11-12, **seluruh 12 celah sudah ditutup.** Dokumen ini tidak lagi menjadi daftar tugas; ia menjadi **catatan riwayat keputusan** — apa yang pernah kurang, bagaimana ditutup, dan apa yang secara sadar tetap terbuka.
+
+| Celah | Ditutup oleh | Jenis |
+| :--- | :--- | :--- |
+| C1 migrasi | `migrations.md` | Dokumen keputusan |
+| C2 kontrak API | `api-contract.md` | Dokumen keputusan |
+| C3 strategi pengujian | `testing-strategy.md` | Dokumen keputusan |
+| C4 email | `email.md` + ADR-021 | Dokumen keputusan |
+| C5 media/lampiran | `attachments-media.md` + ADR-022 | Dokumen keputusan |
+| C6 editor | `editor-decision.md` | Dokumen keputusan |
+| C7 real-time per objek | `realtime-and-search.md` §1–§5 | Spesifikasi perilaku |
+| C8 perilaku pencarian | `realtime-and-search.md` §6–§10 | Spesifikasi perilaku |
+| C9 keamanan & supply chain | `security-policy.md` | Dokumen keputusan |
+| C10 jalur dukungan | `support.md` | Dokumen operasional |
+| C11 onboarding | `onboarding.md` | Spesifikasi perilaku |
+| C12 i18n | `i18n.md` | Dokumen keputusan |
+
+**Yang tetap terbuka, dan mengapa itu benar:** satu hal tidak bisa ditutup dokumen mana pun — **apakah ada orang di luar tim ini yang akan memakai Kelindan** (§7), dan **spike importer S1/S4** yang butuh berkas Jira nyata (`spike-jira-importer.md`). Keduanya bukan kelalaian dokumen; keduanya butuh data atau orang dari dunia nyata.
 
 ---
 
@@ -75,61 +92,61 @@
 
 **Status:** **SELESAI** — `editor-decision.md` v1.0: **Markdown subset + editor visual terbatas** (bukan WYSIWYG penuh, bukan Markdown mentah), `body_format` untuk migrasi format, larangan HTML mentah, konflik eksplisit tanpa merge otomatis, batas keras, `T-EDIT1…T-EDIT8`, dan triger terukur untuk pindah ke WYSIWYG.
 
-### C7 — Definisi "sereal-time" per objek belum lengkap
+### ~~C7 — Definisi real-time per objek belum lengkap~~ → **DITUTUP** oleh `realtime-and-search.md` §1–§5
 
 **Yang ada:** ADR-006 (`changes` dengan `seq` per workspace), delta minimal.
 **Yang tidak ada:** daftar entitas yang disiarkan (apakah `statuses`, `labels`, `teams` juga?), perilaku saat admin mengubah pengaturan tim (apakah semua klien harus reload?), dan cara klien menangani perubahan **struktur** (status dihapus saat kartu sedang ditampilkan).
 
-**Status:** **belum diputuskan**. Perlu tabel "objek yang disiarkan" di ADR-006.
+**Status:** **SELESAI** — klasifikasi K1/K2/K3, matriks penyiaran per perubahan, 9 tepi kasus (status diarsipkan, akses dicabut, field terkunci lokal, delta menumpuk), notifikasi ≠ real-time, `T-RT8…T-RT12`.
 
-### C8 — Pencarian: hasil belum didefinisikan secara perilaku
+### ~~C8 — Pencarian: hasil belum didefinisikan secara perilaku~~ → **DITUTUP** oleh `realtime-and-search.md` §6–§10
 
 **Yang ada:** ADR-005/ADR-019 (mesin, batas, scope).
 **Yang tidak ada:** apa yang dicari (judul saja? deskripsi? komentar? nama orang?), peringkat/bobot, perilaku untuk query kosong, dan apakah hasil pencarian menghormati toggle fitur yang mati.
 
 **Dampak:** command palette (`Ctrl+K`) adalah fitur yang paling terasa. Hasil yang buruk = produk terasa lambat berpikir, walaupun latensinya memenuhi SLO.
 
-**Status:** sebagian diputuskan (ADR-005 §3 menyebut cakupan & bobot), belum ada spesifikasi perilaku.
+**Status:** **SELESAI** — bobot sumber, perilaku query (nomor task, query kosong, stopword, salah ketik), interaksi dengan toggle & izin, urutan hasil palette, `T-SEARCH1…T-SEARCH8`.
 
 ---
 
 ## 3. Celah proses & organisasi (tidak teknis, tapi lebih sering mematikan proyek)
 
-### C9 — Tidak ada kebijakan dependency & supply chain
+### ~~C9 — Tidak ada kebijakan dependency & supply chain~~ → **DITUTUP** oleh `security-policy.md`
 
 **Yang ada:** ADR-014 (pemeriksaan kompatibilitas lisensi di CI).
 **Yang tidak ada:** kebijakan menambah dependensi (siapa menyetujui, kriteria), jadwal pembaruan keamanan, cara menangani CVE, proses merilis patch keamanan untuk versi lama self-host (backport), dan SBOM.
 
 **Dampak:** produk self-host yang tidak bisa merilis patch keamanan cepat akan ditinggalkan — bukan karena fiturnya kurang, tapi karena sysadmin tidak boleh menjalankan perangkat lunak yang tidak ditambal. Ini juga melemahkan seluruh klaim enterprise.
 
-**Status:** **belum diputuskan**. Perlu `docs/security-policy.md`.
+**Status:** **SELESAI** — versi didukung, SLA respons per tingkat (24 jam untuk kritis), alur kerentanan, gerbang dependensi, SBOM/tanda tangan image, rincian CSP, rencana insiden, dan pernyataan tegas **tanpa** klaim sertifikasi.
 
-### C10 — Tidak ada dukungan & jalur eskalasi
+### ~~C10 — Tidak ada dukungan & jalur eskalasi~~ → **DITUTUP** oleh `support.md`
 
 **Yang ada:** T1–T3 di `decisions-r0.md`.
 **Yang tidak ada:** di mana pengguna melaporkan bug, SLA respons (bahkan untuk pilot), cara mengumpulkan diagnostik tanpa membocorkan data (bundle log yang disanitasi), dan siapa yang menjawab pada minggu pertama.
 
 **Dampak:** 5 pilot tanpa jalur dukungan akan berhenti memakai produk dan tidak memberi tahu alasannya.
 
-**Status:** **belum diputuskan**.
+**Status:** **SELESAI** — kanal per audiens dengan janji respons (pilot 4 jam hari kerja), 5 kategori triase, bundle diagnostik satu klik yang **aman dibagikan publik** dengan pratinjau, larangan remote access, batas dukungan yang dinyatakan sebelum pilot, `T-SUP1…T-SUP5`.
 
-### C11 — Onboarding & data awal belum dirancang
+### ~~C11 — Onboarding & data awal belum dirancang~~ → **DITUTUP** oleh `onboarding.md`
 
 **Yang ada:** `FR-107` (template tim).
 **Yang tidak ada:** apa yang dilihat pengguna pada menit pertama (empty state), apakah ada contoh data, bagaimana mengundang tim pertama, dan apa yang terjadi bila workspace kosong sepenuhnya.
 
 **Dampak:** empty state adalah tempat produk mati. Ini murah dirancang sekarang, mahal diperbaiki setelah 100 pengguna.
 
-**Status:** **belum diputuskan** (desain UX, bukan arsitektur).
+**Status:** **SELESAI** — 4 jenis pengguna pertama, alur instalasi tanpa akun default, naskah empty state untuk 10 layar, pratinjau impor wajib, checklist admin maks 3 item, aturan nada penulisan, dan ukuran keberhasilan (task pertama < 60 detik).
 
-### C12 — i18n: diputuskan setengah
+### ~~C12 — i18n: diputuskan setengah~~ → **DITUTUP** oleh `i18n.md`
 
 **Yang ada:** `locale` dan `timezone` pada `users`, default `id-ID`.
 **Yang tidak ada:** apakah UI benar-benar multibahasa (dan siapa menerjemahkan), format tanggal/angka per lokal, dan apakah istilah produk (Goal, Cycle) diterjemahkan.
 
 **Dampak:** setengah-setengah lebih buruk daripada satu bahasa dengan jujur. Menambah i18n setelah 50 komponen berarti menyentuh semuanya.
 
-**Status:** **belum diputuskan**. Rekomendasi: satu bahasa (Indonesia) untuk R0, dengan string terpusat sejak awal agar i18n murah ditambahkan nanti.
+**Status:** **SELESAI** — satu bahasa di R0 (id-ID) tetapi **semuanya terpusat**: tidak ada string tampilan di komponen (`T-I18N1`), kunci berbasis makna, kamus per-rute (menjaga `UX-B1`), aturan format tanggal/angka/zona waktu, glosarium sebagai kontrak terjemahan, triger terukur untuk bahasa kedua, dan aturan "terjemahan parsial lebih buruk daripada tidak ada".
 
 ---
 
@@ -176,11 +193,11 @@ Berdasarkan "biaya bila ditemukan terlambat" ÷ "biaya menutup sekarang":
 | ~~**4**~~ | ~~**C6** (editor)~~ **SELESAI** | — | `editor-decision.md` |
 | ~~**5**~~ | ~~**C4** (email)~~ **SELESAI** | — | `email.md` |
 | ~~**6**~~ | ~~**C5** (gambar)~~ **SELESAI** | — | `attachments-media.md` |
-| **7** | **C9** (keamanan/supply chain) | sebelum rilis publik T3 | Syarat agar sysadmin mau menjalankannya. |
-| **8** | **C10, C11, C12** | sebelum T2 | Murah sekarang, mahal setelah ada pengguna. |
-| **9** | **C7, C8** | selama R0 | Perlu diselesaikan bersamaan dengan implementasi real-time & pencarian. |
+| ~~**7**~~ | ~~**C9** (keamanan/supply chain)~~ **SELESAI** | — | `security-policy.md` |
+| ~~**8**~~ | ~~**C10, C12**~~ **SELESAI** | — | `support.md`, `i18n.md` |
+| ~~**9**~~ | ~~**C7, C8**~~ **SELESAI** | — | `realtime-and-search.md` |
 
-**Status gerbang:** tidak ada lagi dokumen yang memblokir penulisan kode. Empat dokumen pemblokir sudah selesai dan saling merujuk. Yang tersisa (C7, C8, C9, C10, C11, C12) berjalan paralel dengan implementasi R0, dengan tenggat mengikuti urutan T2/T3 di `decisions-r0.md`.
+**Status gerbang:** tidak ada lagi dokumen yang memblokir penulisan kode. Empat dokumen pemblokir sudah selesai dan saling merujuk. Yang tersisa: **C10** (dukungan) dan **C12** (i18n), dengan tenggat mengikuti T2/T3 di `decisions-r0.md`.
 
 ---
 
