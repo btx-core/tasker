@@ -11,10 +11,10 @@
 
 | | |
 | :--- | :--- |
-| Berkas | **21 migrasi** `0001`–`0021` (`examples/migrations/`) |
+| Berkas | **20 migrasi** `0001`–`0020` (`examples/migrations/`) — `0021_schema_migrations.sql` **dihapus** setelah uji integrasi P0 menemukan bahwa tabel itu milik runner, bukan milik migrasi |
 | Total | 1.018 baris SQL berkomentar |
 | Hasil | **Semua berhasil**, tanpa satu pun error |
-| Objek terbentuk | **21 tabel**, **70 index**, **70 CHECK**, **29 FK**, **4 trigger**, **4 fungsi** |
+| Objek terbentuk | **21 tabel** (20 domain + `schema_migrations` milik runner), **70 index**, **70 CHECK**, **29 FK**, **4 trigger**, **4 fungsi** |
 
 Catatan eksekusi: migrasi dijalankan menumpang pada schema percobaan `demo_migrations`, bukan `public`, agar tidak menyentuh apa pun. **Ini penyimpangan dari `migrations.md`, dan disengaja** — pada produk nyata, migrasi berjalan di `public` pada database sendiri. Schema percobaan hanya wadah agar instance bersama tidak tercemar.
 

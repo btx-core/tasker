@@ -3,5 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "dependencies": { "@kelindan/shared": "*", "@kelindan/db": "*" }
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@kelindan/shared": "*",
+    "@kelindan/db": "*",
+    "@electric-sql/pglite": "^0.5.16"
+  }
 }

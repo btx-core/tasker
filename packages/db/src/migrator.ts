@@ -143,8 +143,18 @@ export interface PreflightResult {
  * search_path. Tanpa ini, instalasi yang seharusnya berhasil gagal dengan
  * "type citext does not exist".
  */
-export async function preflight(client: Client, requiredExtensions: string[]): Promise<PreflightResult> {
-  const ver = await client.query<{ v: string }>("SHOW server_version");
+export async function preflight(
+  client: Client,
+  requiredExtensions: readonly string[],
+): Promise<PreflightResult> {
+  // BUG YANG DITEMUKAN UJI INTEGRASI: `SHOW server_version` mengembalikan
+  // kolom bernama `server_version`, bukan `v`. Kode lama membaca `rows[0].v`
+  // -> undefined -> `.split` melempar TypeError. Ini akan gagal pada Postgres
+  // sungguhan mana pun. `current_setting()` lebih dapat diandalkan karena
+  // nama kolomnya kita sendiri yang menentukan.
+  const ver = await client.query<{ v: string }>(
+    "SELECT current_setting('server_version') AS v",
+  );
   const serverVersion = ver.rows[0]!.v;
   const major = Number(serverVersion.split(".")[0]);
   if (major < 16) {
@@ -170,8 +180,10 @@ export async function preflight(client: Client, requiredExtensions: string[]): P
     );
   }
 
-  const sp = await client.query<{ search_path: string }>("SHOW search_path");
-  const searchPath = sp.rows[0]!.search_path.split(",").map((s) => s.trim());
+  const sp = await client.query<{ sp: string }>(
+    "SELECT current_setting('search_path') AS sp",
+  );
+  const searchPath = (sp.rows[0]!.sp ?? "").split(",").map((s) => s.trim());
 
   // Schema ekstensi yang dipakai tipe harus terjangkau search_path.
   const needed = new Set(Object.values(extensionSchemas));
@@ -209,10 +221,20 @@ export interface MigrateResult {
 
 const LOCK_KEY = 7_313_337; // advisory lock khusus runner
 
+/**
+ * Ekstensi yang BENAR-BENAR dibutuhkan skema. Daftar ini harus berubah hanya
+ * bila migrasi memakai tipe/fungsi dari ekstensi tersebut.
+ */
+export const REQUIRED_EXTENSIONS = ["citext", "pg_trgm"] as const;
+
 export async function migrate(client: Client, opts: MigrateOptions): Promise<MigrateResult> {
   const log = opts.log ?? (() => {});
   const files = await loadMigrations(opts.dir);
-  const required = ["pgcrypto", "citext", "pg_trgm"];
+  // pgcrypto TIDAK diminta: skema tidak memakainya (UUID dibuat aplikasi,
+  // ADR-018; tidak ada gen_random_uuid/crypt di migrasi mana pun). Sempat
+  // diminta, dan itu membuat instalasi tanpa pgcrypto gagal tanpa alasan
+  // yang benar-benar dibutuhkan skema. Ditemukan oleh uji integrasi.
+  const required = REQUIRED_EXTENSIONS;
 
   const pf = await preflight(client, required);
   log(`preflight: PostgreSQL ${pf.serverVersion}, ekstensi di ${JSON.stringify(pf.extensionSchemas)}`);

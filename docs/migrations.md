@@ -136,7 +136,7 @@ Runner adalah bagian dari aplikasi (perintah CLI), bukan proses otomatis tersemb
 | **Lock** | `pg_advisory_lock` pada koneksi **langsung** (tanpa pooler), dengan timeout 30 s. Instance kedua yang mencoba migrasi bersamaan menunggu, bukan menjalankan paralel. |
 | **Verifikasi checksum** | Migrasi yang sudah tercatat tapi checksum berbeda → **berhenti**, tampilkan nama berkas. Tidak pernah "memperbaiki otomatis". |
 | **Eksekusi** | Satu migrasi per transaksi, kecuali header `-- transaction: no`. Wajib set `lock_timeout` (3 s) dan `statement_timeout` (60 s, kecuali dinyatakan lain) agar gagal cepat alih-alih mengantre di belakang lock. |
-| **Pencatatan** | Tabel `schema_migrations`: `version`, `name`, `checksum`, `applied_at`, `duration_ms`, `app_version`. |
+| **Pencatatan** | Tabel `schema_migrations`: `version`, `name`, `checksum`, `applied_at`, `duration_ms`, `app_version`. **Tabel ini MILIK RUNNER, dan tidak boleh ada migrasi yang membuatnya.** Ditemukan saat uji integrasi: migrasi `0021` yang membuat tabel ini bertabrakan dengan runner (`relation "schema_migrations" already exists`) — runner membuatnya lebih dulu, sebelum migrasi mana pun. Aturan: bookkeeping runner tidak pernah menjadi isi migrasi. |
 | **Setelah migrasi** | Jalankan pemeriksaan integritas ringan (`INV-01`…`INV-17` versi cepat) dan laporkan pelanggaran — tidak memperbaiki. |
 | **Gagal** | Berhenti, tandai migrasi gagal, **jangan** lanjut ke migrasi berikutnya. Pesan memuat perintah pemulihan yang tepat. |
 | **Dry run** | `--dry-run` menampilkan rencana + estimasi waktu + objek yang akan dikunci. Wajib dipakai pada upgrade produksi. |

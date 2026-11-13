@@ -53,8 +53,8 @@
 | `P0-03` | ESLint termasuk **aturan batas modul** (`web` ✗ `db`/`server`) | Uji negatif: impor terlarang → lint **gagal** | `repo-layout.md` §3 | **[x]** selesai — `npm run lint:boundary` menjalankan 2 kasus yang **harus** ditolak |
 | `P0-04` | `packages/shared/config`: skema env, **fail fast**, tanpa default untuk rahasia | Start tanpa `DATABASE_URL` → berhenti, menyebut variabel | `repo-layout.md` §5 | **[x]** selesai — 8 uji, termasuk penolakan `SESSION_SECRET` nilai contoh |
 | `P0-05` | `.env.example` lengkap + `.gitignore` | `git status` bersih setelah `npm install` | `repo-layout.md` §6 | **[x]** selesai |
-| `P0-06` | `docker compose` untuk Postgres **17** (port 5432) | `psql` terhubung; `SELECT version()` ≥ 17 | `repo-layout.md` §6 | **[x]** selesai (berkas); **belum dijalankan** — Docker tidak ada di lingkungan ini, lihat §8 T-01 |
-| `P0-07` | Runner migrasi `packages/db/migrations/*` → `schema_migrations` | Migrasi 1–21 jalan; jalan kedua = **no-op**; ubah berkas = **ditolak** | `migrations.md` §8, `T-MIG1` | **[~]** runner + 9 uji unit hijau; uji integrasi **belum dijalankan** (T-01) |
+| `P0-06` | `docker compose` untuk Postgres **17** (port 5432) | `psql` terhubung | `repo-layout.md` §6 | **[x]** berkas siap; tidak dipakai di sandbox karena **verifikasi dilakukan lewat PGlite** (T-06) |
+| `P0-07` | Runner migrasi `packages/db/migrations/*` → `schema_migrations` | Migrasi 1–20 jalan; jalan kedua = **no-op**; ubah berkas = **ditolak** | `migrations.md` §8, `T-MIG1` | **[x] SELESAI & TERUJI** pada PostgreSQL 18.6 nyata: 20 migrasi, 21 tabel, jalan kedua no-op, checksum drift ditolak, celah nomor ditolak, preflight menolak ekstensi hilang |
 | `P0-08` | Preflight runner: versi Postgres, **schema ekstensi** (`pg_extension.extnamespace`), `search_path` | Instalasi dengan `citext` di schema `extensions` **berhasil** | **T1** di `demo-migrations-report.md` | **[x]** selesai di kode (preflight menolak schema ekstensi tak terjangkau, dengan pesan yang menyebut penyebabnya) |
 | `P0-09` | `uuidv7()` di aplikasi + uji bentuk | Uji: versi=7, prefix waktu sama dalam 1 ms | ADR-018, `T-MIG9` | **[x]** selesai — 7 uji |
 
@@ -81,7 +81,7 @@
 | `P1-10` | `trace_id` di setiap error + `code` katalog | Error memuat `code` + `trace_id`; `trace_id` ditemukan di log | `api-contract.md` §5.1, `T-SUP2` |
 | `P1-11` | `POST /v1/teams/{id}/tasks` (buat task, nomor dari `team_keys`) | Nomor terbit unik di bawah konkurensi | `ENT-06` | belum |
 | `P1-12` | **Uji isolasi tenant**: user workspace A menembak task workspace B | **404** (bukan 403) | `INV-12` | **[x]** terbukti di Postgres: NOT_FOUND, keberadaan tidak bocor |
-| `P1-13` | `T-W1`: dua `PATCH` berbeda field, `expected_version` sama | Keduanya **berhasil** (per-field) | ADR-015(3) | belum — butuh dua koneksi |
+| `P1-13` | `T-W1`: dua `PATCH` berbeda field, `expected_version` sama | Keduanya **berhasil** (per-field) | ADR-015(3) | belum — butuh **dua koneksi simultan**; PGlite satu koneksi |
 | `P1-14` | `T-W2`: dua `PATCH` field **sama** | LWW + jejak nilai lama | ADR-015(3) | **[~]** jejak terbukti (`from_value` = nilai lama); konkurensi nyata belum |
 | `P1-15` | Handler HTTP `PATCH /v1/tasks/{id}` memanggil `applyTaskPatch` (tanpa logika sendiri) | Uji HTTP: 400/403/404/409 dengan `code` + `trace_id` | `api-contract.md` §5 | belum |
 
@@ -170,6 +170,10 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 | **T-02** | `eslint-disable` pada ignore tidak cukup: berkas probe yang di-ignore **tidak** diperiksa walau dipanggil langsung. | Uji negatif batas modul sempat **lolos palsu** (melaporkan "tidak ditegakkan"). | Perbaikan: `eslint --no-ignore` khusus untuk berkas probe. Pelajaran: **uji negatif pun bisa memberi false pass** — dan itu lebih berbahaya daripada false fail. |
 | **T-03** | `npm i -D @eslint/js` memasang v10 yang menuntut eslint 10, sementara `typescript-eslint` menuntut ≤10. | Instalasi gagal `ERESOLVE`. | Pin `@eslint/js@9` sesuai eslint 9. Dicatat agar tidak diulang saat upgrade berikutnya. |
 | **T-04** | Sandbox agen **tidak dapat menjangkau port 5432 keluar** (`ENETUNREACH` ke `db.*.supabase.co`), walau konektor Supabase (HTTPS) berfungsi. | `npm test` dengan `DATABASE_URL` Supabase **tidak bisa** dijalankan dari sini. | Jalur tulis diuji lewat **konektor Supabase** (SQL ekuivalen, lihat §10), bukan lewat `pg`. Uji integrasi `pg` tetap harus dijalankan di mesin/CI. **Jangan** menganggap `npm test` hijau = integrasi terbukti. |
+| **T-06** | **Verifikasi nyata berhasil tanpa jaringan.** `@electric-sql/pglite` menjalankan **PostgreSQL 18.6 (WASM)** di dalam proses, dengan `citext` & `pg_trgm` asli. `write.ts` dan `migrate()` yang ASLI dieksekusi, bukan tiruan. | T-01/T-04 sebagian **teratasi**: uji integrasi kini SELALU berjalan (61 uji, 0 dilewati). | Dipakai sebagai jalur verifikasi utama. Batas dinyatakan: satu koneksi, tanpa `LISTEN/NOTIFY` antar-proses, sehingga `T-W1`/`T-W2` konkurensi nyata dan uji `pg_notify` lintas proses tetap butuh Postgres jaringan. |
+| **T-07** | **Bug nyata di `preflight()`:** `SHOW server_version` mengembalikan kolom `server_version`, bukan `v`; kode membaca `rows[0].v` → `undefined` → `.split` melempar `TypeError`. Sama untuk `SHOW search_path`. | **Runner akan gagal pada Postgres sungguhan mana pun** — dan ini tidak terlihat oleh 9 uji unit karena tidak ada yang menjalankan SQL-nya. | Diganti `current_setting('server_version')` / `current_setting('search_path')`. **Ini bukti langsung bahwa uji integrasi bukan formalitas.** |
+| **T-08** | **Kontradiksi desain:** preflight menuntut ekstensi `pgcrypto`, padahal **tidak satu pun** migrasi memakai `gen_random_uuid()`/`crypt()` (UUID dibuat aplikasi, ADR-018). | Instalasi tanpa `pgcrypto` akan gagal karena alasan yang tidak dibutuhkan skema — satu cara gagal yang diciptakan sendiri. | `REQUIRED_EXTENSIONS = ['citext','pg_trgm']`; `0001` tidak lagi memasang `pgcrypto`. |
+| **T-09** | **Konflik kepemilikan tabel:** migrasi `0021_schema_migrations.sql` membuat tabel yang **juga** dibuat runner → `relation "schema_migrations" already exists`. | Migrasi ke-21 selalu gagal pada instalasi baru. | Migrasi `0021` **dihapus** (dari `packages/db/migrations` dan `examples/migrations`); `migrations.md` §8 diperjelas: **tabel bookkeeping adalah milik runner, tidak pernah isi migrasi**. Jadi 20 migrasi domain. |
 | **T-05** | `tsc -b` memakai `tsbuildinfo` yang menunjuk berkas yang sudah tidak ada setelah commit hilang dari `.git`, sehingga build "sukses" tetapi `dist/` tidak lengkap — dan error muncul sebagai "no exported member" yang menyesatkan. | Diagnosis salah arah selama beberapa menit. | Bersihkan `dist/` + `*.tsbuildinfo` saat hasil build mencurigakan. **Sudah diperbaiki:** kedua berkas `tsconfig.tsbuildinfo` sempat ikut ter-commit (karena `.gitignore` ditambahkan bersamaan), sekarang di-`git rm --cached`. Artefak build tidak boleh masuk repositori. |
 
 ---
@@ -179,14 +183,27 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 | Tanggal | Perubahan |
 | :--- | :--- |
 | 2026-11-12 | Dokumen dibuat. `P0` siap dikerjakan. B1–B3 tercatat sebagai bloker yang **tidak** menghalangi `P0`–`P4`. |
+| 2026-11-12 | **VERIFIKASI NYATA.** PGlite (PostgreSQL 18.6 WASM) dipakai untuk menjalankan `write.ts` dan `migrate()` yang ASLI: **61 uji lulus, 0 dilewati**. `P0-07` akhirnya **selesai & teruji**. Tiga bug nyata ditemukan & diperbaiki: T-07 (`SHOW` → `current_setting`), T-08 (`pgcrypto` tidak dibutuhkan), T-09 (migrasi 0021 vs runner). `P1-07`…`P1-09`, `P1-12`, `P1-14` naik dari "kode" menjadi "terbukti pada Postgres". |
 | 2026-11-12 | **P1 sebagian**: `P1-01`, `P1-04`…`P1-09`, `P1-12` selesai; `P1-14` jejaknya terbukti. **9 skenario jalur tulis dibuktikan pada PostgreSQL nyata** lewat konektor (versi §10). `P1-15` (handler HTTP) ditambahkan sebagai tugas baru. Temuan T-04 & T-05 dicatat. Jalur tulis: idempotensi REPLAY, versi +1 tepat, no-op tidak menaikkan, 409 versi, 404 lintas tenant, NOTIFY 38 byte, payload 53 byte tanpa deskripsi, kategori event 1→3, `from_value` tersimpan. |
 | 2026-11-12 | `P0-01`…`P0-05`, `P0-08`, `P0-09` **selesai**. `P0-07` runner selesai di kode, uji integrasi tertunda (T-01). `npm run verify` hijau: typecheck + lint + 2 uji negatif batas modul + 24 uji unit. 3 temuan dicatat (T-01…T-03). |
 
 ---
 
-## 10. Bukti jalur tulis pada PostgreSQL nyata (2026-11-12)
+## 10. Bukti pada PostgreSQL nyata
 
-Karena sandbox tidak dapat menjangkau `DATABASE_URL` (T-04), jalur tulis `applyTaskPatch` diuji dengan **SQL ekuivalen** melalui konektor Supabase pada PostgreSQL 17.11, di schema percobaan `p1test` (sudah di-drop; 0 schema tersisa).
+**Status: diperbarui.** Verifikasi pertama memakai SQL ekuivalen lewat konektor Supabase (karena T-04). **Sekarang tidak perlu** — `@electric-sql/pglite` menjalankan **PostgreSQL 18.6 (WASM)** di dalam proses, sehingga **kode asli** (`applyTaskPatch`, `migrate`) dieksekusi langsung. Lihat T-06.
+
+### 10.1 Uji otomatis (`npm test`) — 61 uji, 0 dilewati
+
+| Berkas | Uji | Isi |
+| :--- | --: | :--- |
+| `write.int.test.ts` | 13 | `applyTaskPatch` pada Postgres: idempotensi replay, 409 body beda, versi +1, no-op, 409 versi, 404 lintas tenant, payload 100 KB → ≤4 KB tanpa isi, pointer < 64 B, kategori event, `from_value`, `seq` tanpa celah, 403 viewer, dan **status lintas tim ditolak trigger** |
+| `migrator.int.test.ts` | 5 | `migrate()` pada Postgres: 20 migrasi, jalan kedua no-op, dry-run nol objek, checksum drift ditolak, celah nomor ditolak, preflight ekstensi hilang |
+| unit (`shared`, `db`) | 43 | uuidv7, config, validator, izin, header & checksum migrasi |
+
+### 10.2 Bukti lama (SQL ekuivalen, konektor Supabase 17.11) — tetap berlaku
+
+Schema percobaan `p1test` sudah di-drop; 0 schema tersisa.
 
 | # | Kasus | Hasil |
 | --: | :--- | :--- |
