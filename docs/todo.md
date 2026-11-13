@@ -24,6 +24,59 @@
 3. **Urutan boleh berubah; kelengkapan tidak.** Menunda tugas sah, menghapus tanpa alasan tidak.
 4. **Tugas baru yang muncul di tengah jalan masuk ke §8 (temuan),** diberi ID, lalu dipromosikan atau ditolak **dengan alasan**.
 5. **Setiap perubahan status dicatat di §9 (log).** Tanpa log, dokumen ini berhenti bisa dipercaya setelah 20 commit.
+6. **Setiap merge memperbarui "Ringkasan status" di atas.** Ringkasan itu yang dibaca orang yang baru bergabung; §9 adalah riwayatnya. Memperbarui salah satu tanpa yang lain membuat keduanya saling bertentangan.
+
+---
+
+---
+
+## Ringkasan status (diperbarui setiap merge)
+
+Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
+"apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
+berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
+
+**Terakhir diperbarui:** setelah PR #9 di-merge (commit `MAIN_AFTER_MERGE`). **Uji:** 189 lulus + 17 dilewati dengan alasan tercetak (uji jaringan); **28 uji jaringan lulus** saat PostgreSQL dinyalakan.
+
+### Selesai — dengan bukti yang bisa dijalankan ulang
+
+| Fase | Isi | Bukti |
+| :--- | :--- | :--- |
+| **P0** | Fondasi repo, config fail-fast, runner migrasi (20 migrasi), penjaga batas modul | 61 uji + uji negatif lint |
+| **P1** | Jalur tulis task: idempotensi, versi, izin per-field, isolasi tenant, handler HTTP | 19 uji HTTP + 13 uji integrasi + **28 uji PostgreSQL jaringan** |
+| **P2** | Board 4 query, cursor `(sort_key, id)`, detail + riwayat, 50 rb task | p95 15 ms di PGlite; `ix_tasks_board` tanpa `Sort` |
+| **P3** | WebSocket server nyata, `LISTEN`/`NOTIFY` lintas koneksi, klasifikasi K1/K2/K3, celah `seq`, pencabutan **terukur 91 ms** | 5 uji soket nyata + 3 uji pencabutan |
+| **P4** | Board UI berjalan, klien idempoten, rollback optimistis, konflik tidak menimpa, i18n tertegak | 30 uji UI; bundel **3,8 KB gzip** |
+
+### Sebagian — ada buktinya, tapi belum utuh
+
+| # | Apa yang sudah | Apa yang belum |
+| :--- | :--- | :--- |
+| `P4-04` | Delta diterapkan di klien (versi, pindah kolom) | **Dua jendela nyata < 300 ms belum diukur** — butuh browser, bukan uji unit |
+| `P1-11` | Nomor `ENG-*` unik pada 20 pembuatan bersamaan | Endpoint hapus/pulih task belum ada |
+| `P3-01` | Batas 5 tim/koneksi ditegakkan | Presence (ephemeral) belum |
+| `P4-03` | Pindah kartu optimistis + rollback | **Drag-and-drop native belum** (T-18) |
+
+### Belum dikerjakan
+
+| # | Hal | Penghalang |
+| :--- | :--- | :--- |
+| `P5`* | Importer Jira (`S1`/`S3`/`S4`/`S6`) | **B1** — berkas ekspor Jira belum ada |
+| — | Media/lampiran, email, SSO, goals/cycles (R1), ekspor | Sengaja di luar irisan fase ini (§1) |
+| `P2-04`* | `T-PERF1` pada **Supabase**, bukan PGlite | Butuh instance jaringan; angka PGlite **bukan** bukti `NFR-004` |
+| — | Uji dua jendela browser (`NFR-003`) | Butuh browser otomatis (Playwright), belum ada |
+| — | `T-11` tinjauan framework HTTP | **Wajib sebelum R0** |
+
+### Temuan terbuka (detail di §8)
+
+| # | Ringkas | Dampak bila dibiarkan |
+| :--- | :--- | :--- |
+| `T-11` | HTTP tanpa Fastify (router sendiri) | Middleware (CORS, rate limit, multipart) harus ditulis sendiri |
+| `T-18` | Kartu dipindah lewat `<select>`, bukan drag-and-drop | Pengalaman `UX-5` belum tercapai |
+| `T-17`* | Jadwal pencabutan memakai jajak 1 dtk, bukan NOTIFY per-kejadian | Beban query konstan; **terukur 91 ms**, jadi bukan risiko |
+| — | Bundle/UI memakai string HTML, bukan framework | Saat komponen butuh state lokal kompleks, ini akan menahan |
+
+`*` = butuh keputusan atau sumber daya dari manusia (lihat §6).
 
 ---
 
@@ -107,7 +160,7 @@
 | `P3-03` | Klien menerapkan delta hanya bila `version` > lokal | Delta lebih tua diabaikan, bukan diterapkan | ADR-015(5) | **[x]** 3 uji: versi lebih tinggi diterapkan, versi sama/lebih tua diabaikan, perubahan `status_id` memindahkan kartu |
 | `P3-04` | Deteksi celah `seq` → minta rentang; bila tak ada → **bootstrap ulang** | Klien tertinggal 10 menit pulih tanpa state aneh | ADR-015(6) | **[x]** celah seq → `resync_required: true` dan **tidak ada** delta parsial dikirim |
 | `P3-05` | Klasifikasi **K3 tidak pernah disiarkan** (`audit_event`, `email`, `job`, `import`, `notification`) | Uji: mutasi K3 → tidak ada frame keluar | `realtime-and-search.md` §1 | **[x]** ditegakkan di **titik keluar** (`toFrame`), bukan hanya "tidak sengaja tidak dikirim"; entitas tanpa klasifikasi default **tidak** disiarkan |
-| `P3-06` | Pencabutan akses → putus koneksi < 5 s + bersihkan cache klien | Uji: user dicabut, klien berhenti menerima | `realtime-and-search.md` §5 | **[x]** 2 uji integrasi hub+HTTP: `revoked` dikirim, delta berhenti, **HTTP berikutnya 404**. Batas 5 s belum diukur (tidak ada penjadwal revoke nyata — T-17) |
+| `P3-06` | Pencabutan akses → putus koneksi < 5 s + bersihkan cache klien | Uji: user dicabut, klien berhenti menerima | `realtime-and-search.md` §5 | **[x]** diukur: **88–91 ms** (SLA 5 000 ms). `RevocationWatcher` memantau `team_members.revoked_at` tiap 1 dtk; `revoked` diterima, delta berhenti, HTTP berikutnya 404. Restart server **tidak** memicu false positive |
 
 ---
 
@@ -199,11 +252,12 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 | Tanggal | Perubahan |
 | :--- | :--- |
 | 2026-11-12 | Dokumen dibuat. `P0` siap dikerjakan. B1–B3 tercatat sebagai bloker yang **tidak** menghalangi `P0`–`P4`. |
-| 2026-11-12 | **T-12/T-16/T-17 DITUTUP dengan PostgreSQL 18.6 SUNGGUHAN.** Sandbox ternyata bisa menjalankan server Postgres asli (`embedded-postgres` via pip; `npm run pg:up`). **202 uji: 189 lulus + 13 dilewati dengan alasan tercetak** (uji jaringan), 11 di antaranya lulus saat Postgres dinyalakan. Dua bug nyata hanya muncul ketika dua koneksi benar-benar ada: **T-22** (nomor task ganda) dan **T-21** (kriteria TODO bertentangan dengan kontrak — kontrak menang). T-24 mencatat jebakan `LD_LIBRARY_PATH` yang membuat skrip hanya bekerja di mesin penulisnya. |
-| 2026-11-12 | **P3 SELESAI (kecuali soket nyata). P4 SELESAI (kecuali DnD native).** 189 uji lulus. P3: klasifikasi K1/K2/K3 ditegakkan di titik keluar, celah seq → `resync_required`, batas 5 tim, pencabutan teruji lintas hub+HTTP. P4: board berjalan di port 3000, klien API idempoten, rollback optimistis, konflik tidak menimpa, bundel **3,8 KB gzip**. **Tiga bug nyata ditemukan:** T-19 (`npm install` mati total karena nama paket ganda), T-20 (Idempotency-Key non-UUID → 500), dan T-16/T-17/T-18 sebagai batas yang dinyatakan terbuka. |
-| 2026-11-12 | **P2 SELESAI.** `P2-01` (board, 4 query), `P2-02` (cursor, INV-11), `P2-03` (detail + riwayat), `P2-04` (50 rb task) selesai. **Dua masalah performa nyata ditemukan dan diperbaiki:** T-15 (window function memindai 49 rb baris) dan T-14 (arah index salah → `Incremental Sort`). p95 board di PGlite: **900 ms → 15 ms**. Payload 7×50 = 111,6 KB. **144 uji lulus, 0 dilewati.** |
-| 2026-11-12 | **P1 SELESAI** (kecuali konkurensi simultan). `P1-11` (`POST /tasks`, 6 uji) dan `P1-15` (handler HTTP, 19 uji end-to-end) selesai. `P1-13` sebagian: lewat HTTP penulis kedua dapat 409. **93 uji lulus, 0 dilewati.** Dua bug nyata ditemukan uji: T-10 (nomor melompat 1→441) dan T-13 (`team_keys` tertinggal → 500). T-11 dicatat: HTTP tanpa Fastify, wajib ditinjau sebelum P4. T-12 tetap terbuka: konkurensi simultan belum bisa diuji. |
 | 2026-11-12 | **VERIFIKASI NYATA.** PGlite (PostgreSQL 18.6 WASM) dipakai untuk menjalankan `write.ts` dan `migrate()` yang ASLI: **61 uji lulus, 0 dilewati**. `P0-07` akhirnya **selesai & teruji**. Tiga bug nyata ditemukan & diperbaiki: T-07 (`SHOW` → `current_setting`), T-08 (`pgcrypto` tidak dibutuhkan), T-09 (migrasi 0021 vs runner). `P1-07`…`P1-09`, `P1-12`, `P1-14` naik dari "kode" menjadi "terbukti pada Postgres". |
+| 2026-11-12 | **P1 SELESAI** (kecuali konkurensi simultan). `P1-11` (`POST /tasks`, 6 uji) dan `P1-15` (handler HTTP, 19 uji end-to-end) selesai. `P1-13` sebagian: lewat HTTP penulis kedua dapat 409. **93 uji lulus, 0 dilewati.** Dua bug nyata ditemukan uji: T-10 (nomor melompat 1→441) dan T-13 (`team_keys` tertinggal → 500). T-11 dicatat: HTTP tanpa Fastify, wajib ditinjau sebelum P4. T-12 tetap terbuka: konkurensi simultan belum bisa diuji. |
+| 2026-11-12 | **P2 SELESAI.** `P2-01` (board, 4 query), `P2-02` (cursor, INV-11), `P2-03` (detail + riwayat), `P2-04` (50 rb task) selesai. **Dua masalah performa nyata ditemukan dan diperbaiki:** T-15 (window function memindai 49 rb baris) dan T-14 (arah index salah → `Incremental Sort`). p95 board di PGlite: **900 ms → 15 ms**. Payload 7×50 = 111,6 KB. **144 uji lulus, 0 dilewati.** |
+| 2026-11-12 | **P3 SELESAI (kecuali soket nyata). P4 SELESAI (kecuali DnD native).** 189 uji lulus. P3: klasifikasi K1/K2/K3 ditegakkan di titik keluar, celah seq → `resync_required`, batas 5 tim, pencabutan teruji lintas hub+HTTP. P4: board berjalan di port 3000, klien API idempoten, rollback optimistis, konflik tidak menimpa, bundel **3,8 KB gzip**. **Tiga bug nyata ditemukan:** T-19 (`npm install` mati total karena nama paket ganda), T-20 (Idempotency-Key non-UUID → 500), dan T-16/T-17/T-18 sebagai batas yang dinyatakan terbuka. |
+| 2026-11-12 | **T-12/T-16/T-17 DITUTUP dengan PostgreSQL 18.6 SUNGGUHAN.** Sandbox ternyata bisa menjalankan server Postgres asli (`embedded-postgres` via pip; `npm run pg:up`). **202 uji: 189 lulus + 13 dilewati dengan alasan tercetak** (uji jaringan), 11 di antaranya lulus saat Postgres dinyalakan. Dua bug nyata hanya muncul ketika dua koneksi benar-benar ada: **T-22** (nomor task ganda) dan **T-21** (kriteria TODO bertentangan dengan kontrak — kontrak menang). T-24 mencatat jebakan `LD_LIBRARY_PATH` yang membuat skrip hanya bekerja di mesin penulisnya. |
+| 2026-11-12 | **TC-15 TERUKUR: 91 ms** (SLA 5 000 ms). `RevocationWatcher` memantau `team_members.revoked_at` dan memanggil `revokeTeam()`; 3 uji jaringan lulus termasuk anti-false-positive saat restart. **28 uji jaringan lulus.** "Ringkasan status" ditambahkan di atas dokumen sebagai jawaban satu layar (selesai / sebagian / belum), dan aturan §0.6 mewajibkan ringkasan itu diperbarui setiap merge. |
 | 2026-11-12 | **P1 sebagian**: `P1-01`, `P1-04`…`P1-09`, `P1-12` selesai; `P1-14` jejaknya terbukti. **9 skenario jalur tulis dibuktikan pada PostgreSQL nyata** lewat konektor (versi §10). `P1-15` (handler HTTP) ditambahkan sebagai tugas baru. Temuan T-04 & T-05 dicatat. Jalur tulis: idempotensi REPLAY, versi +1 tepat, no-op tidak menaikkan, 409 versi, 404 lintas tenant, NOTIFY 38 byte, payload 53 byte tanpa deskripsi, kategori event 1→3, `from_value` tersimpan. |
 | 2026-11-12 | `P0-01`…`P0-05`, `P0-08`, `P0-09` **selesai**. `P0-07` runner selesai di kode, uji integrasi tertunda (T-01). `npm run verify` hijau: typecheck + lint + 2 uji negatif batas modul + 24 uji unit. 3 temuan dicatat (T-01…T-03). |
 

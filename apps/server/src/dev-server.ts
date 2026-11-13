@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { createTestClient, applyMigrations } from "@kelindan/testing";
 import { createApp, type AppDeps } from "@kelindan/server";
+import { Hub, RevocationWatcher } from "@kelindan/server";
 import { uuidv7, TEAM_ROLE } from "@kelindan/shared";
 
 const WEB_ROOT = new URL("../../web/", import.meta.url).pathname;
@@ -130,6 +131,25 @@ async function main() {
   app.server.prependListener("request", (req) => {
     if (!req.headers.cookie) req.headers.cookie = `kelindan_session=${DEMO_TOKEN}`;
   });
+
+  // Real-time: hub menempel pada server HTTP yang sama (satu port, satu origin).
+  const hub = new Hub({
+    db: async () => client as never,
+    teamRoleOf: deps.teamRoleOf,
+    auth: async (req) => {
+      const cookie = String(req.headers.cookie ?? "");
+      return cookie.includes("kelindan_session=")
+        ? { userId: DEMO_USER, workspaceId: WS_ID } : null;
+    },
+  });
+  hub.attach(app.server);
+  await hub.startListening().catch(() => {
+    // PGlite tidak mendukung LISTEN lintas koneksi; demo tetap jalan tanpa
+    // fan-out lintas proses, dan itu tercetak supaya tidak tampak seperti sukses.
+    console.log(JSON.stringify({ level: "warn", msg: "LISTEN tidak tersedia pada PGlite" }));
+  });
+  const watcher = new RevocationWatcher({ db: async () => client as never, hub });
+  watcher.start();
 
   const { port } = await app.listen(PORT, HOST);
   console.log(JSON.stringify({ level: "info", msg: "demo siap", port, host: HOST, team: TEAM }));

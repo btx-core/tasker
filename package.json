@@ -25,7 +25,7 @@
     "bundle:check": "node scripts/bundle-check.mjs",
     "lint:ui": "eslint apps/web",
     "pg:up": "bash scripts/realpg.sh",
-    "test:realpg": "KELINDAN_PG_URL=postgres://postgres@127.0.0.1:5432/kelindan_test vitest run packages/db/src/tasks/concurrency.realpg.test.ts packages/server/src/ws/socket.realpg.test.ts"
+    "test:realpg": "KELINDAN_PG_URL=postgres://postgres@127.0.0.1:5432/kelindan_test vitest run packages/db/src/tasks/concurrency.realpg.test.ts packages/server/src/ws"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
