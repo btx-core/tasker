@@ -135,6 +135,64 @@ export class HttpClient {
     );
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Detail, komentar, checklist (P4 / T-39)                             */
+  /* ------------------------------------------------------------------ */
+
+  /** Detail task + komentar + checklist dalam satu tarikan, tanpa duplikasi rute. */
+  taskDetail(taskId: string) {
+    // GET boleh diulang (aman): tidak mengubah apa pun.
+    return this.request<TaskDetail>(`GET`, `/v1/tasks/${taskId}`);
+  }
+
+  listComments(taskId: string) {
+    return this.request<{ comments: CommentPayload[] }>("GET", `/v1/tasks/${taskId}/comments`);
+  }
+
+  /**
+   * SEMUA operasi tulis di bawah ini memakai `send` (satu percobaan), BUKAN
+   * `request` (yang mengulang galat 429/503).
+   *
+   * KENAPA: retry otomatis pada POST komentar yang timeout di tengah jalan
+   * bisa melahirkan DUA komentar. Server menerima dua request berbeda tanpa
+   * Idempotency-Key (rute komentar belum memakainya), jadi server tidak bisa
+   * membedakan "retry" dari "komentar kedua yang memang disengaja".
+   * Pengguna yang ingin mencoba lagi bisa menekan tombolnya sendiri.
+   */
+  createComment(taskId: string, body: string) {
+    return this.send<{ comment: CommentPayload }>("POST", `/v1/tasks/${taskId}/comments`, { body });
+  }
+
+  updateComment(commentId: string, body: string) {
+    return this.send<{ comment: CommentPayload }>("PATCH", `/v1/comments/${commentId}`, { body });
+  }
+
+  deleteComment(commentId: string) {
+    return this.send<{ deleted: boolean; already_deleted: boolean }>(
+      "DELETE", `/v1/comments/${commentId}`,
+    );
+  }
+
+  listChecklist(taskId: string) {
+    return this.request<{ items: ChecklistItemPayload[]; progress: { done: number; total: number } }>(
+      "GET", `/v1/tasks/${taskId}/checklist`,
+    );
+  }
+
+  addChecklistItem(taskId: string, content: string) {
+    return this.send<{ item: ChecklistItemPayload }>("POST", `/v1/tasks/${taskId}/checklist`, {
+      content,
+    });
+  }
+
+  updateChecklistItem(itemId: string, patch: { content?: string; is_done?: boolean }) {
+    return this.send<{ item: ChecklistItemPayload }>("PATCH", `/v1/checklist/${itemId}`, patch);
+  }
+
+  deleteChecklistItem(itemId: string) {
+    return this.send<null>("DELETE", `/v1/checklist/${itemId}`);
+  }
+
   /** Satu percobaan, tanpa retry otomatis. Lihat catatan pada `login`. */
   private async send<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
     let res: Response;
@@ -179,6 +237,31 @@ export class HttpClient {
 }
 
 /** Bentuk respons board (P2-01). Dicerminkan, bukan diimpor dari server. */
+/** Detail task (api-contract.md §8.4). `checklist` sudah termasuk, jadi panel
+ * cukup SATU request untuk terbuka — bukan satu per bagian. */
+export interface TaskDetail {
+  id: string; number: number; title: string; description: string | null;
+  status_id: string; category: number; priority: number;
+  assignee_id: string | null; due_date: string | null; effort: number | null;
+  version: number; created_at: string; updated_at: string;
+  completed_at: string | null; deleted_at: string | null;
+  labels: Array<{ id: string; name: string; color: string }>;
+  checklist: Array<{ id: string; content: string; is_done: boolean; position: number }>;
+  events: Array<{ id: string; seq: number; kind: number; created_at: string }>;
+}
+
+export interface CommentPayload {
+  id: string; task_id: string; author_id: string; author_name: string;
+  /** NULL bila komentar sudah dihapus: teks tidak dikirim lagi ke klien (T-38). */
+  body: string | null;
+  created_at: string; edited_at: string | null; deleted_at: string | null;
+}
+
+export interface ChecklistItemPayload {
+  id: string; content: string; is_done: boolean;
+  assignee_id: string | null; due_date: string | null; position: number;
+}
+
 export interface BoardTask {
   id: string; number: number; title: string; status_id: string; category: number;
   priority: number; assignee_id: string | null; due_date: string | null;

@@ -38,6 +38,47 @@ export const S = {
   loginNetwork: "Tidak bisa menghubungi server. Periksa koneksi Anda.",
   logout: "Keluar",
   logoutAll: "Keluar dari semua perangkat",
+
+  // --- Panel detail task (T-39) ---
+  panelTitle: "Detail task",
+  panelClose: "Tutup",
+  panelLoading: "Memuat detail…",
+  panelDescriptionEmpty: "Tanpa deskripsi",
+  panelDescription: "Deskripsi",
+  panelActivity: "Riwayat",
+  panelActivityEmpty: "Belum ada perubahan",
+
+  // Komentar
+  commentsTitle: "Komentar",
+  commentsEmpty: "Belum ada komentar",
+  commentPlaceholder: "Tulis komentar…",
+  commentSubmit: "Kirim",
+  commentSubmitting: "Mengirim…",
+  commentEdited: "(diedit)",
+  /**
+   * Placeholder untuk komentar terhapus. Teksnya tidak dikirim server (T-38),
+   * jadi UI HARUS punya kalimat sendiri — kalau tidak, yang tampil kosong dan
+   * pembaca tidak bisa membedakan "dihapus" dari "gagal dimuat".
+   */
+  commentDeleted: "Komentar ini telah dihapus",
+  commentEdit: "Ubah",
+  commentDelete: "Hapus",
+  commentSave: "Simpan",
+  commentCancel: "Batal",
+  commentWindowClosed: "Batas 15 menit untuk mengubah sudah lewat",
+  commentDeleteConfirm: "Hapus komentar ini?",
+
+  // Checklist
+  checklistTitle: "Checklist",
+  checklistEmpty: "Belum ada item",
+  checklistPlaceholder: "Tambah item…",
+  checklistAdd: "Tambah",
+  checklistDelete: "Hapus item",
+  checklistProgress: "Selesai",
+
+  // Galat panel
+  panelError: "Gagal memuat detail task",
+  panelForbidden: "Anda tidak berwenang melihat komentar",
 } as const;
 
 export type StringKey = keyof typeof S;

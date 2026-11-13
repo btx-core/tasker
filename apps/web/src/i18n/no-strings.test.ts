@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 const files = [
   "apps/web/src/components/board.ts",
   "apps/web/src/components/login.ts",
+  "apps/web/src/components/task-panel.ts",
   "apps/web/src/main.ts",
 ];
 

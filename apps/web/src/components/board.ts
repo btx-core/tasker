@@ -15,20 +15,47 @@ import type { BoardTask } from "../lib/api.js";
 export interface RenderDeps {
   store: BoardStore;
   root: HTMLElement;
+  /**
+   * Membuka panel detail. Dulu klik kartu memfokuskan dropdown status — itu
+   * jebakan: klik untuk MELIHAT langsung menaruh fokus pada kontrol yang
+   * MENGUBAH data, dan satu tekan panah + Enter memindahkan task tanpa niat.
+   */
+  onOpenTask?: (taskId: string, opener: HTMLElement) => void;
 }
 
 const PRIORITY_LABEL: Record<number, string> = {
   0: "", 1: "!", 2: "!!", 3: "!!!", 4: "!!!!",
 };
 
-export function renderBoard({ store, root }: RenderDeps): void {
+export function renderBoard({ store, root, onOpenTask }: RenderDeps): void {
   root.addEventListener("click", (ev) => {
     const target = ev.target as HTMLElement;
+    /**
+     * Klik pada kontrol di dalam kartu (`select`, tombol) TIDAK membuka panel:
+     * pengguna sedang berinteraksi dengan kontrol itu, bukan dengan kartunya.
+     */
+    if (target.closest("select, button, a, input")) return;
+
     const card = target.closest<HTMLElement>("[data-task-id]");
     if (!card) return;
-    // Pemilih kolom tujuan: satu kontrol, bukan drag-and-drop di fase ini.
-    const select = card.querySelector<HTMLSelectElement>("select");
-    select?.focus();
+    const taskId = card.dataset["taskId"];
+    if (!taskId) return;
+    onOpenTask?.(taskId, card);
+  });
+
+  /**
+   * Enter dan Spasi membuka panel saat kartu difokuskan — kartu adalah tombol
+   * dari sudut keyboard, dan tanpa ini panel hanya bisa dibuka dengan mouse.
+   */
+  root.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    const target = ev.target as HTMLElement;
+    if (target.closest("select, button, a, input")) return;
+    const card = target.closest<HTMLElement>("[data-task-id]");
+    if (!card) return;
+    ev.preventDefault();
+    const taskId = card.dataset["taskId"];
+    if (taskId) onOpenTask?.(taskId, card);
   });
 
   root.addEventListener("change", (ev) => {
@@ -41,7 +68,13 @@ export function renderBoard({ store, root }: RenderDeps): void {
 
   root.addEventListener("click", (ev) => {
     const el = ev.target as HTMLElement;
-    if (el.dataset["dismissConflict"] !== undefined) store.dismissConflict();
+    /**
+     * `el.dataset` bisa undefined pada target tiruan/teks. Uji DOM tiruan
+     * menemukannya sebagai TypeError — dan di browser, klik pada simpul teks
+     * juga bukan elemen. Tanpa penjagaan ini, satu klik di tempat yang salah
+     * melempar dan mematikan handler lain yang terpasang setelahnya.
+     */
+    if (el.dataset?.["dismissConflict"] !== undefined) store.dismissConflict();
   });
 }
 

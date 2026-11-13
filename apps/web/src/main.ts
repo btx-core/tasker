@@ -8,6 +8,7 @@ import { HttpClient } from "./lib/api.js";
 import { BoardStore, initialState } from "./lib/store.js";
 import { boardHtml, hydrateSelects, renderBoard } from "./components/board.js";
 import { mountLogin, type LoginUser } from "./components/login.js";
+import { TaskPanel } from "./components/task-panel.js";
 import { S } from "./i18n/strings.js";
 
 const root = document.querySelector<HTMLElement>("#app");
@@ -25,9 +26,13 @@ const title = document.querySelector<HTMLElement>("h1");
  * galat — dan tidak pernah diarahkan untuk login. Satu permintaan ke `/v1/me`
  * menghilangkan tebakan itu, dan server tetap satu-satunya penentu kebenaran.
  */
+/** Identitas pemanggil dipakai panel untuk memutuskan tombol mana yang tampil. */
+let currentUserId = "";
+
 async function boot(): Promise<void> {
   const me = await api.me();
   if (me.ok && me.data) {
+    currentUserId = me.data.user.id;
     showBoard();
     return;
   }
@@ -63,7 +68,22 @@ function showBoard(): void {
     },
   });
 
-  renderBoard({ store, root: root! });
+  const panel = new TaskPanel({
+    api,
+    userId: currentUserId,
+    /**
+     * Panel mengubah data (komentar, checklist) yang juga tampil di kartu
+     * (progres checklist). Menyegarkan board setelah perubahan membuat dua
+     * tampilan tidak pernah berbeda.
+     */
+    onChange: () => void store.load(),
+  });
+
+  renderBoard({
+    store,
+    root: root!,
+    onOpenTask: (taskId, opener) => void panel.open(taskId, opener),
+  });
   root!.innerHTML = boardHtml(initialState());
   void store.load();
 }
