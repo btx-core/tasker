@@ -36,11 +36,11 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** 2026-11-13, setelah **PR #13 di-merge** (`5ae68f6`). **B-B (login/sesi) selesai dan terverifikasi** — CI hijau di 4 job.
+**Terakhir diperbarui:** 2026-11-13, **B-C (komentar, checklist, transisi status) selesai** di branch `arena/248e3679-tasker`.
 
 | Metrik | Nilai |
 | :--- | :--- |
-| Uji cepat (`npm test`) | **225 lulus**, 29 dilewati *dengan alasan tercetak* |
+| Uji cepat (`npm test`) | **281 lulus**, 29 dilewati *dengan alasan tercetak* |
 | Uji jaringan (`npm run test:realpg`) | **40 lulus** pada PostgreSQL 18.6 sungguhan |
 | Bundel UI | **4,7 KB gzip** (anggaran 60 KB) |
 | Di `main` | seluruh kode P0–P4, `docs/testing-realpg.md`, `npm run pg:up`, **CI 4 job hijau** |
@@ -55,6 +55,7 @@ berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 | **P3** | WebSocket server nyata, `LISTEN`/`NOTIFY` lintas koneksi, klasifikasi K1/K2/K3, celah `seq`, pencabutan **terukur 88–91 ms** | 5 uji soket nyata + 3 uji pencabutan (`npm run test:realpg`) |
 | **P4** | Board UI berjalan, klien idempoten, rollback optimistis, konflik tidak menimpa, i18n tertegak | 30 uji UI; bundel **4,7 KB gzip** |
 | **B-B** | **Login/sesi (FR-112)**: scrypt, `sessions` nyata, login/logout/logout-all/me, batas laju NFR-014, halaman login | 12 uji jaringan + 16 uji HTTP + 19 uji modul; **TC-16** 1 ms, **TC-17** 90 vs 88 ms |
+| **B-C** | **Komentar & checklist tulis + validasi transisi status**: 8 rute baru, matriks peran penuh, revisi komentar, soft delete placeholder, posisi checklist ternormalisasi | 15 uji modul + 15 uji integrasi + 19 uji HTTP + 7 uji transisi |
 
 ### Sebagian — ada buktinya, tapi belum utuh
 
@@ -71,7 +72,7 @@ berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 | :--- | :--- | :--- |
 | **B-A** | ~~CI tidak ada~~ → **selesai** (`T-25`): 3 job, termasuk matriks Postgres 16/17. Run pertama **gagal** dan menemukan `T-28` (`tsc -b` sukses palsu) — perbaikan terverifikasi lewat simulasi CI dari nol | — |
 | **B-B** | ~~Login / penerbitan sesi~~ → **selesai**: sesi diterbitkan & disimpan (`sessions`), demo login sungguhan, sesi tercabut berlaku seketika | Email verifikasi & reset password belum (butuh pengirim email) → **T-33** |
-| **B-C** | **Komentar, checklist tulis, transisi status** (gate R0) | Rute terdaftar baru 6; baca ada, tulis belum |
+| **B-C** | ~~Komentar, checklist tulis, transisi status~~ → **selesai**: `commenter` kini benar-benar bisa berkomentar; transisi status memvalidasi tim/arsip dan mengisi timestamp | UI komentar & checklist belum ada (rute sudah) → **T-39** |
 | **B-D** | **Drill restore** `NFR-010`/`D-03` | Gate R0 eksplisit; butuh instance dengan WAL archiving |
 | `P5`* | Importer Jira (`S1`/`S3`/`S4`/`S6`) | **B1** — berkas ekspor Jira belum ada |
 | — | Media/lampiran, email, SSO, goals/cycles (R1), ekspor | Sengaja di luar irisan fase ini (§1) |
@@ -86,6 +87,8 @@ berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 | `T-11` | HTTP tanpa Fastify (router sendiri) | Middleware (CORS, multipart) harus ditulis sendiri; rate limit sudah ada sendiri |
 | `T-32` | Batas laju disimpan **per proses**, bukan bersama | Dengan N instans, batas efektif jadi N × 10 |
 | `T-33` | Verifikasi email & reset password (FR-112) belum ada | Pengguna baru tidak bisa memverifikasi dirinya |
+| `T-38` | **Soft delete komentar BUKAN penghapusan data**: `ck_comments_body_len` menolak `body = ''`, jadi teks tetap tersimpan dan hanya tidak dikembalikan | Permintaan "hapus data saya" (privacy) belum bisa dipenuhi. Butuh keputusan retensi |
+| `T-39` | Rute komentar & checklist ada, **UI-nya belum** | Fitur ada di API tetapi tidak bisa dipakai dari browser |
 | — | `Deps.db` mengembalikan `Client`, bukan `Pool` | 20 koneksi per request pada beban nyata |
 | — | `server.busy` (503) terdaftar di kontrak tapi tidak pernah dikirim | Pool penuh = galat tak tertangani |
 | `T-18` | Kartu dipindah lewat `<select>`, bukan drag-and-drop | Pengalaman `UX-5` belum tercapai |
@@ -265,6 +268,10 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 | **T-14** | **Index `ix_tasks_board` tidak dipakai untuk urutan board.** Index menyimpan `id` **ASC** (bawaan), sedangkan board mengurutkan `updated_at DESC, id DESC`. PostgreSQL tidak bisa memakai index untuk campuran arah → menambah `Incremental Sort` di atas **7.200 baris/kolom**. | Terukur: board 50 rb task **p95 ~900 ms**; setelah arah `id DESC` ditambahkan → **15 ms**. Pada 500 rb baris ini menjadi kegagalan `NFR-004` yang diam-diam, persis yang diperingatkan `perf-validation.md`. | Ditemukan P2-04 lewat `EXPLAIN`, bukan lewat angka. **Pelajaran: "index sudah ada" ≠ "index dipakai".** Definisi index diperbaiki di `0009_tasks.sql` + `data-model.md`. |
 | **T-15** | **Window function memindai seluruh tabel.** Versi pertama `loadBoard` memakai `row_number() OVER (PARTITION BY status_id)` agar semua kolom dalam satu query. `PARTITION BY` tidak bisa berhenti lebih awal → PostgreSQL memindai **49.000 baris** untuk mengembalikan 350. | Sama seperti T-14: p95 ~900 ms pada 50 rb, gagal pada 500 rb. | Diganti `LEFT JOIN LATERAL (… ORDER BY … LIMIT 51) ON true`: satu round-trip, tiap kolom memakai index dan berhenti di 51, `LIMIT 51` memberi `truncated` tanpa `count(*)`. |
 | **T-11** | Menyimpang dari `repo-layout.md` §2: HTTP memakai **router bawaan Node**, bukan Fastify. | Tidak ada middleware bawaan (CORS, rate limit, multipart). | Sengaja: fase ini membuktikan **kebenaran jalur tulis**, bukan memilih framework. Tiap dependensi menambah permukaan yang harus dipercaya sebelum ada satu pengguna. Logika ada di `routes.ts`, jadi penggantian framework tidak menyentuh rute. **Wajib ditinjau sebelum P4.** |
+| **T-40** | **Peran `commenter` tidak bisa berkomentar.** Matriks `PERMISSIONS` hanya memberinya `TASK_VIEW` + `BOARD_READ`. | Nama peran berbohong tentang kemampuannya, dan `rbac.md` baris 188 menyebut berkomentar sebagai SELURUH alasan peran itu ada. Tidak ada uji yang menangkapnya karena tidak ada rute komentar untuk diuji. | Tiga action komentar ditambahkan untuk `commenter`, tanpa satu pun hak menulis task. Uji matriks peran kini menegakkan keduanya sekaligus. |
+| **T-41** | **Tiga dari empat validasi transisi status di `api-contract.md` §7.4 tidak ada.** Status tim lain sampai ke trigger DB (500, bukan 400); status **terarsip diterima**; `completed_at`/`started_at`/`canceled_at` **tidak pernah diisi**. | (a) Klien melihat 500 untuk kesalahan sendiri. (b) Task masuk kolom yang disembunyikan dari board: muncul di laporan, hilang dari UI. (c) Metrik "berapa lama task selesai" tidak punya data sama sekali — dan `INV-07` first-touch tidak pernah diuji karena tidak ada yang mengisi. | Uji ditulis lebih dulu dan **gagal seperti yang diharapkan**, lalu divalidasi di `write.ts`: tim sama (400), tidak terarsip (400), dan `COALESCE(kolom, now())` untuk ketiga timestamp. First-touch diuji dengan bolak-balik status. |
+| **T-42** | **`SET body = ''` pada soft delete komentar melanggar `ck_comments_body_len`** (body 1–16384). | Rencana awal (kosongkan teks) tidak mungkin dieksekusi; percobaan pertama gagal pada uji. | Teks tetap disimpan, hanya **tidak dikembalikan** (`body = NULL` ke klien). Konsekuensinya bukan detail: ini **bukan** penghapusan data → **T-38**. |
+| **T-43** | **`DELETE /v1/comments/:id` dua kali memberi 404.** `canDeleteComment` menolak dengan alasan `deleted`. | Klien yang retry setelah timeout menerima 404 untuk operasi yang **sudah berhasil**, lalu menampilkan "komentar tidak ditemukan" kepada pengguna yang baru saja menghapusnya. | Idempotensi menang atas "sudah dihapus" — tetapi hanya untuk yang memang berhak (izin diperiksa dengan `deletedAt = null`, jadi 403 tetap untuk orang lain). |
 | **T-31** | **Argon2id (FR-112) diganti scrypt bawaan `node:crypto`.** `@node-rs/argon2` sudah diuji dan **berjalan** (781 KB, binary prebuilt, `m=19456,t=2,p=1`), jadi ini bukan pengganti karena gagal. | Satu binary pihak ketiga di jalur instalasi berarti satu kelas kegagalan build yang tidak ada hubungannya dengan kode kita. | scrypt `N=2^15, r=8, p=1` (memory-cost ~32 MiB, 17 ms hash / 10 ms verifikasi). Format hash menyimpan algoritma + parameter, jadi migrasi per-user mungkin tanpa reset massal. **Penyimpangan dari PRD dicatat, bukan disembunyikan.** |
 | **T-32** | **Batas laju disimpan di memori proses.** NFR-014 meminta 10 login/menit/IP. | Dengan N instans, batas efektif menjadi N × 10 — cukup untuk menebak password bila penerapan horizontal dilakukan tanpa memindahkan penghitung. | Diterima untuk R0 (satu instans). Sebelum skala horizontal, penghitung harus pindah ke Redis/Postgres. Dicatat di `rate-limit.ts` pada kode, bukan hanya di sini. |
 | **T-33** | **Verifikasi email & reset password (FR-112) belum ada.** Tabel `email_message` ada, pengirimnya belum. | Pengguna baru dibuat dengan `email_verified_at = NULL` dan **ditolak login** (403 `auth.email_unverified`). Tanpa alur verifikasi, tidak ada pendaftar yang bisa masuk. | Ditunda bersama pekerjaan email. Sampai saat itu akun harus dibuat dengan `email_verified_at` terisi (seed demo melakukannya). **Ini bloker onboarding nyata**, bukan detail. |
@@ -280,6 +287,7 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 
 | Tanggal | Perubahan |
 | :--- | :--- |
+| 2026-11-13 | **B-C selesai.** 8 rute baru (komentar GET/POST, PATCH/DELETE, checklist GET/POST/PATCH/DELETE), matriks peran penuh, revisi komentar, soft delete placeholder, posisi checklist ternormalisasi. **Empat temuan perilaku** (`T-40`…`T-43`) — dan yang paling penting: **peran `commenter` tidak bisa berkomentar** sejak awal, serta **tiga dari empat validasi transisi status tidak ada** padahal kontraknya menulisnya eksplisit. Uji ditulis lebih dulu dan gagal, baru kode diperbaiki. Diverifikasi pada dev-server hidup: komentar 201, checklist 201, transisi ke Selesai → `completed_at` terisi dan event `seq=1` tercatat. Uji: 281 lulus, 29 dilewati; 40 uji jaringan. |
 | 2026-11-13 | **PR #13 di-merge (`5ae68f6`) — B-B selesai, CI hijau 4 job.** Satu run merah di tengah jalan, dan penyebabnya bukan perilaku: gerbang `--expect-skipped 17` menolak **29** uji dilewati karena uji jaringan baru ditambahkan. **Angka tetap adalah gerbang yang akan merah setiap kali ada uji baru** — dan merah karena administrasi melatih orang mengabaikan merah. Gerbang kini menerima **rentang 17–100** yang menangkap dua kegagalan nyata (uji jaringan berjalan tanpa DB; uji berhenti didaftarkan), diuji pada empat keadaan. Angka tetap 17 dipertahankan sebagai jalur yang masih didukung. |
 | 2026-11-13 | **B-B (login/sesi) selesai.** `sessions` kini benar-benar ditulis: token 256-bit hanya dikirim ke klien, yang tersimpan SHA-256-nya (diuji dengan mencari token mentah di seluruh kolom teks). Endpoint `POST /v1/auth/login`, `/logout`, `/logout-all`, `GET /v1/me`, `POST /v1/auth/touch`. Halaman login dengan `<form>` + `autocomplete`. `dev-server` tidak lagi menyuntikkan cookie `demo` — demo login seperti pengguna. **Tujuh temuan** (`T-31`…`T-37`), dan yang paling penting bukan salah satunya: **empat dari tujuh hanya muncul saat server benar-benar dijalankan atau saat uji diperketat**, bukan saat kode dibaca. `T-34` = `npm run dev` tidak bisa start sementara 225 uji hijau. Uji: 225 lulus, 29 dilewati; 40 uji jaringan; bundel 4,7 KB gzip. |
 | 2026-11-12 | Dokumen dibuat. `P0` siap dikerjakan. B1–B3 tercatat sebagai bloker yang **tidak** menghalangi `P0`–`P4`. |
