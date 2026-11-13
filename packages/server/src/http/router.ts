@@ -28,9 +28,30 @@ export interface RequestContext {
   body: unknown;
   /** Diisi oleh middleware autentikasi. */
   auth?: { userId: string; workspaceId: string; sessionId: string };
+  /**
+   * IP klien untuk pembatas laju. Diisi lapisan HTTP karena hanya di sana
+   * header proxy tersedia; use-case tidak boleh membaca header mentah.
+   */
+  clientIp: string;
 }
 
-export type Handler = (ctx: RequestContext) => Promise<{ status: number; body: unknown }>;
+/**
+ * Hasil handler. `headers` opsional ditambahkan ke respons.
+ *
+ * KENAPA DIPERLUKAN: login harus mengirim `Set-Cookie`, dan rate limit harus
+ * mengirim `Retry-After` (NFR-014). Tanpa jalur ini, satu-satunya alternatif
+ * adalah menulis langsung ke `ServerResponse` dari dalam handler — yang
+ * memindahkan pengetahuan HTTP ke lapisan use-case dan membuat kontrak
+ * `{status, body}` (satu-satunya alasan `routes.ts` bisa diuji tanpa jaringan)
+ * bocor.
+ */
+export interface HandlerResult {
+  status: number;
+  body: unknown;
+  headers?: Record<string, string>;
+}
+
+export type Handler = (ctx: RequestContext) => Promise<HandlerResult>;
 
 interface Route {
   method: string;
@@ -39,20 +60,39 @@ interface Route {
   handler: Handler;
   /** false untuk rute publik (mis. /health). Default: wajib sesi. */
   requiresAuth: boolean;
+  /**
+   * Batas percobaan per IP (NFR-014), mis. `{ max: 10, windowMs: 60_000 }`.
+   * Tidak diset = tanpa batas. Dipakai login, yang menjadi sasaran tebak
+   * password.
+   */
+  rateLimit?: { max: number; windowMs: number };
 }
 
 export class Router {
   private routes: Route[] = [];
 
-  add(method: string, pattern: string, handler: Handler, opts: { requiresAuth?: boolean } = {}): this {
+  add(
+    method: string,
+    pattern: string,
+    handler: Handler,
+    opts: { requiresAuth?: boolean; rateLimit?: { max: number; windowMs: number } } = {},
+  ): this {
     this.routes.push({
       method,
       pattern,
       segments: pattern.split("/").filter(Boolean),
       handler,
       requiresAuth: opts.requiresAuth ?? true,
+      ...(opts.rateLimit ? { rateLimit: opts.rateLimit } : {}),
     });
     return this;
+  }
+
+  /** Dipakai tes & diagnosa: pola terdaftar, tanpa membocorkan handler. */
+  list(): Array<{ method: string; pattern: string; requiresAuth: boolean }> {
+    return this.routes.map((r) => ({
+      method: r.method, pattern: r.pattern, requiresAuth: r.requiresAuth,
+    }));
   }
 
   match(method: string, pathname: string): { route: Route; params: Record<string, string> } | null {
@@ -96,11 +136,28 @@ export async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-export function sendJson(res: ServerResponse, status: number, body: unknown): void {
+export function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): void {
+  /**
+   * 204 TIDAK PUNYA BODY, dan `JSON.stringify(undefined)` mengembalikan
+   * `undefined` — yang membuat `Buffer.byteLength(undefined)` melempar
+   * TypeError. Bug ini muncul sebagai **500 pada logout** (yang memang 204),
+   * bukan sebagai galat di tempat yang terlihat berhubungan.
+   */
+  if (body === undefined || status === 204) {
+    res.writeHead(status, headers);
+    res.end();
+    return;
+  }
   const text = JSON.stringify(body);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(text),
+    ...headers,
   });
   res.end(text);
 }

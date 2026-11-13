@@ -19,6 +19,14 @@ export const ERROR_CODES = {
   INVALID_CREDENTIALS: "auth.invalid_credentials",
   /** Batas percobaan terlampaui (NFR-014). Selalu disertai header Retry-After. */
   TOO_MANY_REQUESTS: "rate.limited",
+  /**
+   * Password benar tetapi email belum diverifikasi. SENGAJA dibedakan dari
+   * kredensial salah: hanya pemilik password yang bisa mencapai keadaan ini,
+   * dan tanpa kode ini pengguna baru akan melihat "password salah" padahal
+   * passwordnya benar — kebingungan yang mahal untuk aplikasi yang dipakai
+   * tim.
+   */
+  EMAIL_UNVERIFIED: "auth.email_unverified",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

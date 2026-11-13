@@ -15,6 +15,7 @@
  * implementasi saja, dan HTTP serta WebSocket memakai aturan yang sama persis.
  */
 import { createHash, randomBytes } from "node:crypto";
+import { isIP } from "node:net";
 import type { Client } from "pg";
 import type { SessionContext } from "@kelindan/shared";
 
@@ -94,7 +95,13 @@ export async function createSession(
       now.toISOString(),
       expiresAt.toISOString(),
       user.session_epoch,
-      opts.ip ?? null,
+      /**
+       * Kolomnya `inet`: nilai seperti "unknown" (fallback pembatas laju) BUKAN
+       * IP, dan PostgreSQL menolaknya sebagai **500**. Lebih baik menyimpan
+       * NULL daripada menggagalkan login hanya karena alamat klien tidak bisa
+       * ditentukan — IP adalah informasi tambahan, bukan syarat sesi.
+       */
+      asIpOrNull(opts.ip),
       opts.userAgent ?? null,
     ],
   );
@@ -163,12 +170,20 @@ export async function revokeAllSessions(
   await db.query("BEGIN");
   try {
     await db.query("UPDATE users SET session_epoch = session_epoch + 1 WHERE id = $1", [userId]);
-    const { rowCount } = await db.query(
+    const res = await db.query(
       "UPDATE sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL",
       [userId, now.toISOString()],
     );
+    /**
+     * Angka dibaca SEKARANG, sebelum COMMIT. Beberapa driver (termasuk PGlite)
+     * memakai ulang objek hasil antar-query, sehingga `rowCount` yang dibaca
+     * setelah COMMIT bisa menjadi milik COMMIT — nilainya 0. Itu muncul
+     * sebagai "logout-all tidak mencabut apa pun" padahal sesinya benar
+     * tercabut: bug laporan, bukan bug data, dan justru yang paling menyesatkan.
+     */
+    const revoked = Number(res.rowCount ?? 0);
     await db.query("COMMIT");
-    return rowCount ?? 0;
+    return Number.isFinite(revoked) ? revoked : 0;
   } catch (err) {
     await db.query("ROLLBACK");
     throw err;
@@ -218,4 +233,10 @@ function randomUuid(): string {
   b[8] = (b[8]! & 0x3f) | 0x80; // varian RFC 4122
   const h = b.toString("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** Membuang nilai yang bukan alamat IP. `inet` menolak "unknown" dengan 500. */
+function asIpOrNull(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  return isIP(value) === 0 ? null : value;
 }

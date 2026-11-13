@@ -20,13 +20,6 @@
  * password massal.
  */
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
-
-const scrypt = promisify(scryptCb) as (
-  password: string | Buffer,
-  salt: string | Buffer,
-  keylen: number,
-) => Promise<Buffer>;
 
 /**
  * Biaya: N=32768 (2^15), r=8, p=1 => ~32 MiB per hash.
@@ -110,7 +103,12 @@ function scryptWith(
  * jalur memakan waktu yang sama.
  */
 export async function burnPasswordTime(password: string): Promise<void> {
-  await scrypt(password, DUMMY_SALT, KEYLEN).catch(() => undefined);
+  // Parameter HARUS sama dengan `hashPassword` (N, r, p dari modul). Versi
+  // pertama memakai `scrypt()` polos -> N default 16384 -> jalur "email tidak
+  // ada" sekitar 2x lebih cepat (84 ms vs 40 ms, terukur TC-17). Itu persis
+  // kebocoran yang ingin ditutup fungsi ini, jadi salah parameter di sini
+  // membuat penangkalnya sendiri tidak bekerja.
+  await scryptWith(password, DUMMY_SALT, KEYLEN, { n: N, r: R, p: P }).catch(() => undefined);
 }
 
 const DUMMY_SALT = Buffer.from("kelindan-dummy-salt-not-a-real-account", "utf8");
