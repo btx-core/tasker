@@ -1,4 +1,4 @@
-# Tasker — Cetak Biru Desain & Arsitektur
+# Kelindan — Cetak Biru Desain & Arsitektur
 
 Direktori ini berisi dokumen **desain** (bukan implementasi). Tidak ada kode di sini. Tujuannya: setiap keputusan yang mahal diubah sudah diputuskan dan dicatat alasannya, sehingga engineer bisa mulai menulis kode tanpa rapat desain tambahan.
 
@@ -10,6 +10,8 @@ Direktori ini berisi dokumen **desain** (bukan implementasi). Tidak ada kode di 
 | [`architecture.md`](./architecture.md) | Keputusan arsitektur (ADR-001…ADR-014), topologi, profil deployment, model ancaman cache klien | **Aktif** — sumber kebenaran teknis |
 | [`data-model.md`](./data-model.md) | Kamus data Fase 1 siap-DDL: entitas, kolom, constraint, index, invariant, state machine | **Aktif** — sumber kebenaran skema |
 | [`rbac.md`](./rbac.md) | Katalog aksi, peran, matriks permission, invariant, kasus uji | **Aktif** — sumber kebenaran otorisasi |
+| [`gaps-analysis.md`](./gaps-analysis.md) | Analisis celah jujur: 12 hal yang belum ada, dampaknya, dan urutan penutupannya | **Aktif** — rencana kerja |
+| [`naming-and-validation.md`](./naming-and-validation.md) | Keputusan nama (Kelindan) + hasil validasi skema pada PostgreSQL nyata (V1–V11) | **Aktif** |
 | [`decisions-r0.md`](./decisions-r0.md) | Keputusan operasi & go-to-market: model operasi, 4 peran, backup/restore, tahap GTM, batas open-core | **Aktif** — mengikat |
 | [`import-contract.md`](./import-contract.md) | Kontrak importer Jira: pemetaan, taksonomi kegagalan L1–L5, kolom skema wajib, kriteria spike | **Aktif** — mengikat |
 | [`prd-review.md`](./prd-review.md) | Review kritis atas cetak biru v0 ("Next-Jira") | **Arsip** — konteks, bukan spesifikasi |
@@ -23,7 +25,8 @@ Dokumen v0 tidak lagi menjadi acuan. Di mana dokumen v0 dan direktori ini berbed
 3. `architecture.md` — ADR-001 (arsitektur data klien), ADR-002 (hierarki), ADR-003 (otorisasi) adalah tiga keputusan fondasi; sisanya turunan.
 4. `data-model.md` + `rbac.md` — spesifikasi yang langsung dipakai saat menulis migration dan middleware.
 5. `decisions-r0.md` — siapa mengoperasikan, bagaimana backup dibuktikan, dan kapan boleh diumumkan.
-6. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
+6. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
+7. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
 
 ## Konvensi ID
 
@@ -38,6 +41,10 @@ Semua requirement, invariant, aksi, dan keputusan punya ID stabil agar bisa diru
 - `TC-xx` — test case otorisasi (`rbac.md`)
 
 Aturan traceability: setiap `FR-*` harus merujuk minimal satu `AC-*` dan satu `INV-*` (jika menyentuh data). PR yang menutup `FR-*` wajib menyebut ID-nya.
+
+## Nama
+
+Produk bernama **Kelindan** (dari bahasa Indonesia: benang yang melilitkan beberapa helai menjadi satu ikatan). Repository dan branch masih bernama `tasker`; penggantian nama repo adalah keputusan pemilik akun dan tidak memengaruhi dokumen. Alasan pemilihan & verifikasi kolisi nama: `naming-and-validation.md` §1.
 
 ## Lisensi
 

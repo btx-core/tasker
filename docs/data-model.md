@@ -13,13 +13,14 @@
 | :--- | :--- | :--- |
 | S1 | **Satu sumber kebenaran** (Postgres). Tidak ada tabel yang "nanti disinkronkan ke search engine". | Pencarian memakai indeks Postgres (ADR-005). |
 | S2 | **`workspace_id` wajib pada semua tabel milik tenant**, walau redundan. | Index komposit selalu diawali `workspace_id`. Isolasi tenant bisa ditegakkan tanpa join (ADR-012). |
-| S3 | **PK `uuid` v7**, dibuat seragam oleh satu mekanisme (diputuskan: **aplikasi** membuat UUIDv7, bukan default kolom). | Alasan: ID tersedia sebelum commit (dibutuhkan untuk optimistic UI, `changes`, dan outbox), dan tidak bergantung pada fungsi DB saat pengujian unit. Postgres 18 tetap dipakai untuk keperluan lain; ada test yang memverifikasi bahwa UUID yang dihasilkan valid v7. |
+| S3 | **PK `uuid` v7**, dibuat seragam oleh satu mekanisme (diputuskan: **aplikasi** membuat UUIDv7, bukan default kolom). Minimum **PostgreSQL 16** (ADR-018) — `uuidv7()` native PG 18 sengaja tidak dipakai. | Alasan: ID tersedia sebelum commit (optimistic UI, `changes`, outbox), pengujian unit tidak butuh DB, dan audiens self-host di 16/17 tidak dikecualikan. Ada test yang memverifikasi version=7. |
 | S4 | **Enum tidak dipakai sebagai tipe Postgres.** Nilai tetap disimpan sebagai `smallint` + CHECK, dengan peta nilai di dokumen ini. | `ALTER TYPE … ADD VALUE` tidak bisa dibatalkan dan menyulitkan rollback migrasi. |
 | S5 | **Waktu:** semua `timestamptz`, disimpan dalam UTC. Tidak ada kolom tanggal tanpa zona untuk data sistem. Tanggal jatuh tempo adalah `date` (tanggal kalender, disengaja tanpa zona). | Menghindari bug DST pada due date. |
 | S6 | **Soft delete hanya untuk entitas berisi pekerjaan** (task, komentar, goal, tim, workspace). Relasi dan event tidak di-soft-delete. | `NFR-013`. |
 | S7 | **Append-only untuk riwayat** (`task_events`, `audit_events`, `changes`). Tidak ada UPDATE/DELETE. | ADR-004, ADR-006. |
 | S8 | **Tidak ada `ON DELETE CASCADE` pada data yang diaudit.** Penghapusan adalah operasi eksplisit dengan urutan yang ditulis di §6. | Mencegah kehilangan riwayat tak sengaja. |
 | S9 | **Constraint ditegakkan di DB, bukan hanya aplikasi.** Bila sebuah aturan bisa dinyatakan sebagai CHECK/UNIQUE/FK, ia harus ada di DB. | Aplikasi punya bug; DB adalah pertahanan terakhir. |
+| S10 | **Semua DDL di dokumen ini sudah dieksekusi minimal sekali pada PostgreSQL nyata** (17.11), kecuali yang ditandai belum. | Mencegah "desain yang tidak bisa dibuat". Lihat `naming-and-validation.md` §2 untuk hasil per asumsi. |
 
 ---
 
@@ -234,7 +235,7 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 | `number` | bigint | tidak | — | nomor dari `team_keys` |
 | `title` | text | tidak | — | 1–300 |
 | `description` | text | ya | null | Markdown; ≤ 100 KB (`prd.md` §7.4) |
-| `description_tsv` | tsvector | ya | null | Diisi trigger; GIN index (ADR-005) |
+| `description_tsv` | tsvector | ya | **generated stored** | `GENERATED ALWAYS AS (to_tsvector('simple', coalesce(title,'') \|\| ' ' \|\| coalesce(description,''))) STORED` — **generated column, bukan trigger** (diverifikasi V7). GIN index (ADR-005). |
 | `category` | smallint | tidak | 1 | **1=Tugas, 2=Bug, 3=Permintaan, 4=Insiden** |
 | `status_id` | uuid | tidak | — | FK → statuses (tim yang sama) |
 | `priority` | smallint | tidak | 0 | 0=tidak ada, 1=rendah, 2=sedang, 3=tinggi, 4=mendesak |
@@ -247,7 +248,7 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 | `canceled_at` | timestamptz | ya | null | diisi saat masuk kategori 5 |
 | `goal_id` | uuid | ya | null | ENT-21 (R1); kolom ada di R0 agar tidak migrasi ulang |
 | `cycle_id` | uuid | ya | null | ENT-22 (R1) |
-| `source_system` | smallint | ya | null | 1=Jira, null=dibuat di Tasker (`import-contract.md` §6) |
+| `source_system` | smallint | ya | null | 1=Jira, null=dibuat di Kelindan (`import-contract.md` §6) |
 | `source_instance_id` | text | ya | null | Identitas instance/expor asal; mencegah bentrok antar instance |
 | `source_id` | text | ya | null | Kunci issue asal (mis. `ENG-123`) |
 | `source_raw` | jsonb | ya | null | ADF/JSON mentah deskripsi — **wajib** agar konversi lossy bisa diperbaiki kelak |
@@ -314,7 +315,7 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 
 ### ENT-12 `comments` & ENT-13 `comment_revisions`
 
-`comments`: `id`, `workspace_id`, `task_id`, `author_id`, `body` (text, Markdown ≤ 16 KB), `body_tsv` (tsvector, trigger), `created_at`, `edited_at`, `deleted_at`, **`source_id` (text, null), `source_raw` (jsonb, null), `imported_at` (timestamptz, null)** — tiga kolom terakhir ada karena konversi ADF lossy juga berlaku pada komentar (`import-contract.md` §6).
+`comments`: `id`, `workspace_id`, `task_id`, `author_id`, `body` (text, Markdown ≤ 16 KB), `body_tsv` (tsvector **generated stored**), `created_at`, `edited_at`, `deleted_at`, **`source_id` (text, null), `source_raw` (jsonb, null), `imported_at` (timestamptz, null)** — tiga kolom terakhir ada karena konversi ADF lossy juga berlaku pada komentar (`import-contract.md` §6).
 **Constraint:** panjang body 1–16.384.
 **Index:** `(task_id, created_at)` untuk thread; GIN `body_tsv`.
 **Soft delete** menyisakan baris (placeholder "komentar dihapus") agar thread tidak berubah bentuk.
@@ -415,7 +416,9 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 
 **Index:** PK `(workspace_id, seq)` sudah melayani `since_seq`. Index tambahan `(created_at)` untuk job pemangkas.
 **Pemangkasan:** delta disimpan minimum 24 jam; lebih lama dari itu klien yang tertinggal menerima instruksi **bootstrap ulang** (bukan error).
-**Aturan payload:** hanya field yang berubah. Tidak boleh memuat `description` penuh (payload besar = latensi real-time gagal); perubahan deskripsi mengirim sinyal "reload field" beserta hash, bukan isi.
+**Aturan payload (batas keras, ADR-017):** hanya field yang berubah; **maksimum 4 KB**; tidak boleh memuat `description`/`comments.body`. Perubahan deskripsi mengirim sinyal "reload field" beserta hash, bukan isi. Alasan ada batas: `pg_notify` gagal pada payload ≥ 8.000 byte **di dalam transaksi**, sehingga dapat menggagalkan mutasi (temuan V8 di `naming-and-validation.md`).
+
+**Aturan NOTIFY:** `pg_notify` hanya membawa `(workspace_id, seq)` ≤ 64 byte. Penerima membaca baris ini dari tabel. `NOTIFY` adalah bel, bukan kurir.
 
 **Counter `seq`:** disimpan di `workspaces.seq_next` (kolom tambahan) dan dinaikkan dalam transaksi yang sama dengan insert `changes`. Kontensi: satu baris per workspace — dapat diterima karena semua mutasi pada workspace yang sama memang harus berurutan. Bila workspace sangat sibuk (>500 mutasi/detik), jalur keluarnya blok alokasi seperti `team_keys` (dengan konsekuensi urutan antar-blok tidak ketat, sehingga klien harus mengandalkan `version` — sudah dirancang begitu).
 

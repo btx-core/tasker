@@ -96,7 +96,7 @@ Empat peran, dipegang oleh 4 orang yang ada (satu orang boleh memegang dua peran
 
 ### Kalimat diferensiasi (dipakai apa adanya di semua materi)
 
-> **Tasker adalah satu-satunya alat kerja open-source yang dipakai bersama oleh tim Engineering dan tim non-Engineering tanpa dua alat terpisah — dan satu-satunya yang memindahkan data Jira Anda dengan laporan jujur tentang apa yang hilang.**
+> **Kelindan adalah satu-satunya alat kerja open-source yang dipakai bersama oleh tim Engineering dan tim non-Engineering tanpa dua alat terpisah — dan satu-satunya yang memindahkan data Jira Anda dengan laporan jujur tentang apa yang hilang.**
 
 Dua klaim, keduanya bisa diuji:
 1. *Dipakai bersama tanpa dua alat* → dibuktikan oleh toggle per tim (ADR-007) dan gate gate T2.
@@ -145,11 +145,11 @@ Batas yang mengikat: fitur yang dibutuhkan agar **self-host 3-container berguna*
 
 ---
 
-## 7. Yang masih butuh keputusan Anda (hanya tiga)
+## 7. Yang masih butuh keputusan Anda (sekarang tinggal dua)
 
 Sisanya sudah diputuskan. Tiga hal berikut tidak bisa saya putuskan karena menyangkut komitmen pribadi Anda:
 
-1. **Nama proyek & identitas.** Repo bernama `tasker`, tetapi "Tasker" sudah dipakai aplikasi Android populer — risiko kebingungan merek nyata. Saya sarankan ganti nama sebelum peluncuran publik (T3), karena mengganti nama setelah ada 25 instalasi jauh lebih mahal. Perlu keputusan Anda karena menyangkut domain, nama merek, dan siapa pemiliknya.
+1. ~~**Nama proyek & identitas.**~~ **SELESAI — nama diputuskan: Kelindan** (lihat `naming-and-validation.md` §1). Sisa pekerjaan administratif, bukan desain: pendaftaran domain & merek sebelum T3. Repo/branch tetap bernama `tasker` dan itu disengaja (mengganti nama repo akan memutus remote, URL PR, dan branch sesi).
 2. **Komitmen waktu 12 bulan.** D-02 mengasumsikan keempat peran terisi oleh orang yang benar-benar tersedia. Bila ini proyek sampingan, gate §5 harus dikalikan 2–3, dan saya perlu menulis ulang estimasi (bukan sebaliknya: memaksa estimasi tetap).
 3. **Anggaran infrastruktur ±$40–80/bulan** untuk instance Standar + object storage + monitoring. Bila tidak ada, D-03 turun ke profil Minimal dan `NFR-010` (RPO 5 menit) harus **diturunkan secara jujur** menjadi RPO 24 jam — bukan tetap ditulis 5 menit.
 

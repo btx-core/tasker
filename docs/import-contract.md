@@ -1,4 +1,4 @@
-# Kontrak Importer: Jira → Tasker
+# Kontrak Importer: Jira → Kelindan
 
 **Versi:** 1.0 · **Tanggal:** 2026-11-12
 **Status:** Aktif. Dokumen ini **menggantikan** "wizard satu klik" v0.
@@ -38,7 +38,7 @@
 
 ## 3. Pemetaan objek
 
-| Jira | Tasker | Sifat | Catatan |
+| Jira | Kelindan | Sifat | Catatan |
 | :--- | :--- | :--- | :--- |
 | Project | **Team** | 1:1 | `key` project → `teams.key` (dipotong ke 6 huruf, bentrok diselesaikan dengan sufiks angka dan dicatat). |
 | Issue | **Task** | 1:1 | Nomor issue dipertahankan bila `team_key` sama; bila tidak, nomor baru diberikan dan **pemetaan lama→baru dicatat** di laporan. |
@@ -88,7 +88,7 @@ Ini inti kontrak. Setiap item yang diimpor harus berada di salah satu tingkat in
 
 | # | Masalah | Keputusan | Alasan |
 | :--- | :--- | :--- | :--- |
-| **IC-1** | User Jira tidak punya akun Tasker. | Buat akun "placeholder" (nonaktif, tanpa kredensial) dengan nama & email asal; admin dapat mengklaim/menautkan setelah impor. Bila email kosong, buat user "tak dikenal" per workspace (satu baris, bukan per issue). | Kehilangan pelaku merusak riwayat dan metrik. |
+| **IC-1** | User Jira tidak punya akun Kelindan. | Buat akun "placeholder" (nonaktif, tanpa kredensial) dengan nama & email asal; admin dapat mengklaim/menautkan setelah impor. Bila email kosong, buat user "tak dikenal" per workspace (satu baris, bukan per issue). | Kehilangan pelaku merusak riwayat dan metrik. |
 | **IC-2** | Riwayat transisi status Jira (changelog) — apakah diimpor? | **Ya, bila tersedia** (jalur A sering menyertakan `changelog` terbatas). Dipetakan ke `task_events` dengan `actor_id` hasil pemetaan pengguna IC-1 dan `source = 'import'`. Bila tidak tersedia: **tidak** dibuat-buat; `started_at`/`completed_at` diambil dari timestamp status saat ini bila ada, dan metrik menandai task ini `reconstructed = true`. | Metrik yang mengklaim presisi dari data rekonstruksi adalah kebohongan. Penandaan ini yang membedakan importer ini dari yang lain. |
 | **IC-3** | Task Jira bisa punya banyak assignee lewat field kustom. | Assignee utama saja; sisanya → L4 dengan ekspor CSV. | M1 di `data-model.md` (satu assignee). |
 | **IC-4** | Status Jira tidak cocok dengan 5 kategori. | Petakan dari `statusCategory` Jira. Bila tidak ada, default `Dikerjakan` + peringatan. | Jangan menebak `Selesai` — salah tebak membuat metrik basi. |
@@ -107,7 +107,7 @@ Ini bagian yang membuat spike importer wajib mendahului migration final. Semua k
 
 | Tabel | Kolom | Tipe | Alasan |
 | :--- | :--- | :--- | :--- |
-| `tasks` | `source_system` | smallint/null | 1 = Jira; null = dibuat di Tasker. |
+| `tasks` | `source_system` | smallint/null | 1 = Jira; null = dibuat di Kelindan. |
 | `tasks` | `source_instance_id` | text/null | Identitas instance Jira (hostname/ID ekspor) agar dua instance tidak bentrok. |
 | `tasks` | `source_id` | text/null | Kunci issue asal (`ENG-123`). |
 | `tasks` | `source_raw` | jsonb/null | ADF/JSON mentah deskripsi (R3, untuk perbaikan konversi di masa depan). |

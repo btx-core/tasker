@@ -1,4 +1,4 @@
-# Arsitektur: Tasker
+# Arsitektur: Kelindan
 
 **Versi:** 1.0 · **Tanggal:** 2026-11-12
 **Ruang lingkup:** keputusan teknis yang mengikat untuk R0–R2. Setiap ADR menyatakan keputusan, alasan, konsekuensi, dan **syarat untuk meninjau ulang** (agar keputusan bisa diuji, bukan diperdebatkan).
@@ -239,7 +239,7 @@ Detail matriks ada di `rbac.md`. ADR ini hanya menetapkan strukturnya.
 - **Bahasa:** TypeScript di klien dan server. Alasan yang dipakai: model data Task kompleks (attribute, kategori, toggle, riwayat) dan tipe bersama menghilangkan kelas bug kontrak antara klien/server; satu bahasa menurunkan biaya tim 4 orang; server-side rendering untuk halaman auth mempercepat muat awal.
 - **Frontend:** Next.js (App Router) + React. Area kerja adalah aplikasi klien (bukan SSR per navigasi) agar SLO `NFR-003` tercapai; SSR dipakai hanya untuk halaman publik/auth.
 - **Backend:** Node + Fastify, dipisah dari route handler Next agar bisa diskalakan terpisah dan dipakai oleh WebSocket hub. Tidak memakai framework berat dengan banyak lapisan abstraksi.
-- **PostgreSQL 18 minimum.** Alasan spesifik: `uuidv7()` native (ADR-011) sehingga pembuatan ID tidak memerlukan library atau fungsi PL/pgSQL. Konsekuensi: operator self-host harus memakai Postgres 18+; ini dinyatakan di dokumen deployment.
+- **PostgreSQL 16 minimum** (dikoreksi dari 18 — lihat ADR-018). UUIDv7 dibuat di aplikasi, jadi tidak ada ketergantungan pada fungsi DB yang baru ada di 18. Operator self-host boleh memakai 16 atau 17; 18 didukung tetapi bukan syarat.
 - **Validasi:** satu skema (mis. satu definisi tipe yang menghasilkan validator request/response) untuk mencegah kontrak ganda.
 - **Tidak dipakai pada R0–R2:** GraphQL (REST cukup dan lebih mudah di-cache/di-rate-limit), microservices, Kubernetes sebagai prasyarat.
 
@@ -255,7 +255,7 @@ Detail matriks ada di `rbac.md`. ADR ini hanya menetapkan strukturnya.
 
 **Keputusan.**
 
-1. Semua entitas memakai `uuid` versi 7 sebagai PK, dibuat **di server** (Postgres 18 `uuidv7()` atau aplikasi — keduanya harus menghasilkan nilai yang sama bentuknya; pilih satu, lihat `data-model.md`).
+1. Semua entitas memakai `uuid` versi 7 sebagai PK, dibuat **selalu oleh aplikasi** (bukan default kolom, bukan fungsi DB). Alasan: ID harus tersedia sebelum commit (optimistic UI, `changes`, outbox), pengujian unit tidak butuh DB, dan minimum PostgreSQL turun ke 16 (ADR-018). Tidak ada dua sumber pembuatan ID yang boleh hidup bersamaan.
 2. Alasan yang **benar**: (a) insert cenderung ke ujung kanan B-tree sehingga mengurangi page split dan fragmentasi dibanding UUIDv4; (b) ID bisa dibuat di klien untuk entitas yang dibuat di klien (komentar, checklist item) tanpa round-trip; (c) ID tidak dapat ditebak dan tidak membocorkan volume data seperti integer.
 3. Alasan yang **bukan** dasar keputusan: "memudahkan sharding/partitioning". Partitioning ditentukan oleh *partition key* (`workspace_id`, atau bulan untuk event), bukan oleh tipe PK. UUIDv7 membantu **locality insert**, bukan partisi.
 4. Alternatif yang ditolak: `bigint` auto-increment global (membocorkan volume, menyulitkan pembuatan ID di klien, menyulitkan penggabungan data impor), `bigint` per-tenant (menambah kompleksitas routing).
@@ -306,7 +306,7 @@ Detail matriks ada di `rbac.md`. ADR ini hanya menetapkan strukturnya.
 
 **Keputusan.** Proyek dilisensikan **AGPL-3.0-only**.
 
-**Alasan.** Mencegah pihak ketiga menawarkan Tasker sebagai layanan hosted tanpa berkontribusi balik, tanpa melarang perusahaan memakai dan memodifikasi untuk internal. Ini pilihan yang konsisten dengan positioning "open-source yang tidak bisa di-wholesale oleh hyperscaler".
+**Alasan.** Mencegah pihak ketiga menawarkan Kelindan sebagai layanan hosted tanpa berkontribusi balik, tanpa melarang perusahaan memakai dan memodifikasi untuk internal. Ini pilihan yang konsisten dengan positioning "open-source yang tidak bisa di-wholesale oleh hyperscaler".
 
 **Konsekuensi yang mengikat desain produk.** Pasal 13 mewajibkan pengguna yang berinteraksi lewat jaringan dapat memperoleh source. Maka:
 
@@ -358,6 +358,73 @@ Detail matriks ada di `rbac.md`. ADR ini hanya menetapkan strukturnya.
 **Aturan.** Setiap profil **wajib diuji di CI** pada setiap rilis (bukan hanya profil HA). Dokumen v0 hanya menyebut `docker-compose up -d` dan Helm; tanpa profil Minimal yang benar-benar diuji di VM kecil, klaim "mudah di-deploy" tidak bisa dipertanggungjawabkan.
 
 **Migrasi.** Maju saja (forward-only); setiap migration harus (a) kompatibel dengan versi aplikasi sebelumnya selama satu rilis (expand/contract), (b) tidak mengunci tabel besar > 5 s (`NFR-012`), (c) punya catatan rollback data. Tidak ada downgrade otomatis.
+
+---
+
+### ADR-017 — Batas payload `NOTIFY`: hanya pointer, bukan isi
+
+**Status:** Diterima. **Mengoreksi ADR-006 dan ADR-008** yang menyiratkan payload delta/outbox dikirim lewat `NOTIFY`.
+
+**Konteks (temuan validasi, `naming-and-validation.md` V8).** Diukur pada PostgreSQL nyata: `pg_notify` menerima 7.999 byte dan **gagal pada 8.000 byte** dengan `ERROR: payload string too long`. Karena `NOTIFY` dieksekusi **di dalam transaksi**, kegagalan ini bukan cuma "delta hilang" — seluruh mutasi task ikut rollback. Satu patch deskripsi panjang sudah cukup untuk memicunya.
+
+**Keputusan.**
+
+1. Payload `NOTIFY` **hanya** `(workspace_id, seq)` — di bawah 64 byte, tidak pernah memuat entitas.
+2. Penerima (instance lain, atau klien setelah reconnect) membaca baris dari `changes` berdasarkan `seq`. `NOTIFY` adalah **bel**, bukan kurir.
+3. `changes.payload` dibatasi **4 KB**, tidak boleh memuat `description`/`comment.body` (sudah berlaku di ADR-006, sekarang menjadi batas keras yang diuji).
+4. Pelanggaran batas saat menulis `changes` → **500 dengan trace ID**, bukan pemotongan diam-diam. Data task tetap tersimpan; hanya delta yang gagal, dan itu terlihat.
+5. Uji wajib: mutasi task dengan deskripsi 100 KB (batas §7.4) harus berhasil menyimpan dan menyiarkan delta < 4 KB.
+
+**Konsekuensi.** Ada satu query tambahan per penerima NOTIFY (baca `changes`). Murah, dan jauh lebih aman daripada alternatif "kirim semuanya lewat NOTIFY".
+
+---
+
+### ADR-018 — Minimum PostgreSQL 16, UUIDv7 selalu di aplikasi
+
+**Status:** Diterima. **Menggantikan ketetapan versi di ADR-010 dan mengoreksi ADR-011 butir 1.**
+
+**Konteks (V9).** ADR-010 menetapkan PostgreSQL 18 karena `uuidv7()` native. Kenyataannya: lingkungan PostgreSQL yang tersedia dan paling umum di self-host masih 16/17; `uuidv7()` baru ada di 18 (rilis Sep 2025). Menetapkan minimum 18 mempersempit adopsi tanpa manfaat — karena ADR-011 memang sudah memutuskan ID dibuat di aplikasi agar tersedia sebelum commit.
+
+**Keputusan.**
+
+1. Minimum **PostgreSQL 16**. Diuji di 16 dan 17; 18 didukung.
+2. `uuidv7()` **tidak** dipakai dari DB. Aplikasi membuat UUIDv7; ada test yang memverifikasi versi=7 dan urutan monoton dalam satu milidetik.
+3. Ekstensi yang wajib tersedia: `pgcrypto` (untuk `gen_random_uuid()` bila aplikasi tidak membuat ID), `citext` (email case-insensitive), `pg_trgm` (pencarian judul toleran salah ketik). `btree_gist` tidak diperlukan.
+4. Dokumen deployment wajib menyatakan versi minimum dan memeriksanya saat start (gagal cepat dengan pesan jelas, bukan error aneh di tengah jalan).
+
+**Konsekuensi.** Kehilangan satu optimasi kecil (pembuatan ID di DB), mendapat audiens self-host yang jauh lebih besar. Ini pertukaran yang benar untuk produk yang menjual kemudahan deploy.
+
+---
+
+### ADR-019 — Batas pencarian teks: filter wajib, hasil dibatasi, batas dinyatakan
+
+**Status:** Diterima. **Menajamkan ADR-005.**
+
+**Konteks (V10).** Diukur: GIN FTS dipakai untuk istilah selektif (0,15 ms), tetapi untuk istilah yang ada di hampir semua baris planner memilih **Seq Scan** (0,7 ms pada 50 ribu baris). Biaya itu tumbuh linear terhadap jumlah baris — pada 500 ribu baris menjadi puluhan milidetik, dan pada jutaan baris melewati `NFR-006`.
+
+**Keputusan.**
+
+1. Setiap query pencarian **wajib** menyertakan scope tenant + tim (konsisten dengan INV-12). Pencarian lintas tenant tidak disediakan.
+2. Hasil dibatasi (maks 50 per halaman, kandidat maks 5.000) dan **selalu** halaman pertama yang diprioritaskan latensinya.
+3. Daftar stopword bahasa Indonesia dipakai agar istilah umum tidak menjadi query FTS yang tidak selektif.
+4. Batas yang dinyatakan terbuka: pencarian istilah sangat umum pada > 500 ribu baris per tim **akan** melampaui `NFR-006`. Ini triger terukur untuk revisit ADR-005 (mesin pencari terpisah), bukan kejutan yang ditemukan di produksi.
+5. Untuk pencarian judul (jalur tercepat, dipakai command palette), gunakan trigram + prefix match pada kolom judul saja — bukan FTS gabungan — agar `NFR-006` bisa dipenuhi untuk kasus 80% teratas.
+
+---
+
+### ADR-020 — Connection pooling wajib pada profil Standar & HA
+
+**Status:** Diterima.
+
+**Konteks (V11).** Lingkungan uji nyata memakai `max_connections = 60`, dengan 15 koneksi sudah terpakai sebelum aplikasi berjalan. Model koneksi "satu koneksi per request" akan menghabiskan kuota ini pada belasan pengguna konkuren, apalagi 150 (`prd.md` §7.1).
+
+**Keputusan.**
+
+1. **Profil Minimal:** satu instance aplikasi, pool internal dibatasi eksplisit (**maks 10 koneksi DB**), `NFR-016` tetap terpenuhi.
+2. **Profil Standar & HA:** **wajib** memakai pooler (PgBouncer atau setara) dalam mode transaction. Batas koneksi aplikasi→pooler ditetapkan per instance (default 20) dan didokumentasikan.
+3. Migrasi dan job latar memakai koneksi terpisah dengan kuota sendiri, agar tidak menghabiskan pool saat migrasi berjalan.
+4. Konsekuensi yang dinyatakan: mode transaction **melarang** `SET` sesi, prepared statement lintas transaksi, dan advisory lock yang bergantung pada sesi. Semua kode harus mengasumsikan koneksi berpindah antar transaksi. Ini aturan pengkodean, bukan preferensi.
+5. `NFR-019` ditambahkan di `prd.md`: jumlah koneksi per instance dan perilaku saat pool habis (antre dengan timeout 5 s + error yang jelas, bukan menggantung).
 
 ---
 

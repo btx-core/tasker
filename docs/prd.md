@@ -1,4 +1,4 @@
-# PRD: Tasker — Manajemen Kerja untuk Tim Campuran, Skala Enterprise
+# PRD: Kelindan — Manajemen Kerja untuk Tim Campuran, Skala Enterprise
 
 **Versi:** 1.0
 **Tanggal:** 2026-11-12
@@ -10,13 +10,13 @@
 
 ## 1. Ringkasan Produk
 
-**Satu kalimat.** Tasker adalah alat manajemen kerja open-source yang dipakai bersama oleh tim Engineering dan tim non-Engineering dalam satu workspace — cepat seperti Linear, cukup aman dan lengkap untuk perusahaan 1.000+ karyawan, dan bisa di-host sendiri dengan tiga container.
+**Satu kalimat.** Kelindan adalah alat manajemen kerja open-source yang dipakai bersama oleh tim Engineering dan tim non-Engineering dalam satu workspace — cepat seperti Linear, cukup aman dan lengkap untuk perusahaan 1.000+ karyawan, dan bisa di-host sendiri dengan tiga container.
 
-**Masalah yang diselesaikan.** Perusahaan besar menghadapi dilema: Jira cukup kuat untuk Engineering dan cukup patuh untuk IT, tapi terlalu rumit untuk HR/Marketing/Legal dan terlalu lambat untuk dipakai harian. Akibatnya perusahaan membeli dua alat (Jira + Trello/Notion/Asana), lalu kehilangan visibilitas lintas divisi. Tasker menghapus dilema itu dengan satu model data yang sama, di mana kerumitan **dinyalakan per tim**, bukan dipaksakan ke semua orang.
+**Masalah yang diselesaikan.** Perusahaan besar menghadapi dilema: Jira cukup kuat untuk Engineering dan cukup patuh untuk IT, tapi terlalu rumit untuk HR/Marketing/Legal dan terlalu lambat untuk dipakai harian. Akibatnya perusahaan membeli dua alat (Jira + Trello/Notion/Asana), lalu kehilangan visibilitas lintas divisi. Kelindan menghapus dilema itu dengan satu model data yang sama, di mana kerumitan **dinyalakan per tim**, bukan dipaksakan ke semua orang.
 
 **Posisi bersaing.**
 
-| | Jira | Linear | Plane | **Tasker** |
+| | Jira | Linear | Plane | **Kelindan** |
 | :--- | :--- | :--- | :--- | :--- |
 | Kuat untuk Engineering | Ya | Ya | Ya | Ya |
 | Ramah tim non-IT | Tidak | Kurang | Sedang | **Ya (target utama)** |
@@ -24,7 +24,7 @@
 | Deployment ringan (3 container) | — | — | Sulit | **Ya** |
 | Impor data Jira yang jujur | — | Terbatas | Ya | **Ya (dengan laporan kegagalan)** |
 
-**Yang tidak diklaim.** Tasker tidak menargetkan paritas fitur Jira. Tasker tidak menargetkan portofolio/OKR tingkat perusahaan. Tasker tidak menargetkan menjadi lebih cepat dari Linear pada dataset Linear. Klaim yang dipakai hanya yang bisa diuji: SLO di §7.
+**Yang tidak diklaim.** Kelindan tidak menargetkan paritas fitur Jira. Kelindan tidak menargetkan portofolio/OKR tingkat perusahaan. Kelindan tidak menargetkan menjadi lebih cepat dari Linear pada dataset Linear. Klaim yang dipakai hanya yang bisa diuji: SLO di §7.
 
 ---
 
@@ -109,7 +109,7 @@ Tanggal diganti **gate berbasis bukti**. Rilis berikutnya tidak dimulai sebelum 
 
 | Rilis | Isi | Gate lulus bila | Estimasi (tim 4 orang: 2 FE, 1 BE, 1 design/PM) |
 | :--- | :--- | :--- | :--- |
-| **R0 — Inti yang terasa cepat** | Auth, workspace, tim, task, board, list, komentar, checklist, riwayat transisi status | **Satu tim nyata (≥5 orang) memakai Tasker sebagai alat kerja utama selama 14 hari berturut-turut**, tanpa kembali ke alat lama, `NFR-003` terpenuhi di dataset acuan §7.1, **dan satu drill restore penuh lulus** (D-03 di `decisions-r0.md`) | 10–12 minggu |
+| **R0 — Inti yang terasa cepat** | Auth, workspace, tim, task, board, list, komentar, checklist, riwayat transisi status | **Satu tim nyata (≥5 orang) memakai Kelindan sebagai alat kerja utama selama 14 hari berturut-turut**, tanpa kembali ke alat lama, `NFR-003` terpenuhi di dataset acuan §7.1, **dan satu drill restore penuh lulus** (D-03 di `decisions-r0.md`) | 10–12 minggu |
 | **R1 — Perencanaan & pencarian** | Goal, Cycle, dependency, smart filter, custom view, inbox, API publik, integrasi Git | Satu tim menyelesaikan ≥2 cycle penuh dengan auto-rollover tanpa intervensi manual, dan **impor Jira nyata (≥1.000 issue) berhasil dengan laporan kegagalan < 2%** | 10–14 minggu |
 | **R2 — Enterprise & skala** | SSO+SAML/OIDC, SCIM, audit log, RBAC guest, timeline, insights, template, impor Jira produksi, time tracking (toggle) | Audit keamanan eksternal lulus tanpa temuan kritis; restore backup teruji < RTO; 1 workspace 2.000 user berjalan 30 hari tanpa insiden P1 | 14–18 minggu |
 | **R3 — Skala ekstrem** | Partisi `event_log`, replica terbaca, Helm autoscaling, kapasitas | Uji beban lolos §7.1 dengan p95 sesuai SLO pada 3× dataset acuan | Sesuai kebutuhan |
@@ -268,6 +268,8 @@ Semua angka performa di dokumen ini diukur terhadap dataset ini. Klaim tanpa dat
 | **NFR-015** | Aksesibilitas | WCAG 2.2 AA untuk alur inti (buat task, ubah status, komentar, navigasi keyboard penuh) | Audit otomatis + manual sebelum R2 |
 | **NFR-016** | Ukuran deployment minimum (profil Minimal) | 2 vCPU / 4 GB total, seluruh layanan | Uji di VM 2 vCPU |
 | **NFR-017** | Budget query | Tidak ada endpoint yang menjalankan > 20 query per request; tidak ada query tanpa index pada tabel > 100k baris | `EXPLAIN` gate di CI |
+| **NFR-006a** | Pencarian istilah sangat umum (> 50% baris) | Dibatasi: hanya dengan scope tenant+tim, hasil maks 50/halaman; batas dinyatakan: > 500 ribu baris/tim akan melampaui NFR-006 (ADR-019) | Uji pada dataset §7.1 |
+| **NFR-019** | Koneksi & pooling | Profil Minimal: 1 instance, maks 10 koneksi DB. Standar/HA: pooler wajib, 20 koneksi/instance; pool habis → antre maks 5 s lalu error jelas (bukan menggantung) | `pg_stat_activity` + uji beban |
 | **NFR-018** | Observability | Setiap request punya trace ID; error rate, latensi per endpoint, dan lag sinkronisasi terekspos di `/metrics` | Standar rilis |
 
 ### 7.3 Target yang **tidak** dijanjikan
@@ -380,7 +382,7 @@ Aturan tampilan: setiap grafik menampilkan jumlah sampel; grafik dengan < 5 samp
 | **RK-06** | Tim 4 orang tidak sanggup memelihara 40+ fitur R2. | Kualitas turun, SLO gagal, maintainer kelelahan. | Gate berbasis bukti (§5) + non-goals mengikat + aturan §7.6. Lingkup dipotong, bukan tanggal. **Empat peran operasional + aturan pengganti** (`decisions-r0.md` D-02). | Product owner |
 | **RK-07** | Postgres `LISTEN/NOTIFY` + FTS tidak cukup pada skala target. | SLO gagal di R0/R1. | Diukur terhadap §7.1 sejak R0; jalur keluar sudah dirancang (ADR-005 §Revisit) sehingga migrasi tidak invasif. | Backend |
 | **RK-09** | Data loss: backup ada tapi restore belum pernah terbukti. | Insiden yang tidak bisa dipulihkan; kepercayaan hilang permanen. | D-03: WAL archiving + verifikasi restore otomatis bulanan + drill kuartalan; **gate R0 mensyaratkan drill lulus**, bukan sekadar konfigurasi backup. | Operator |
-| **RK-10** | Nama "Tasker" bertabrakan dengan aplikasi Android populer bernama sama. | Kebingungan merek; biaya penggantian nama naik seiring jumlah instalasi. | Keputusan nama diambil **sebelum T3 (peluncuran publik)**; lihat `decisions-r0.md` §7 butir 1. | Product owner |
+| **RK-10** | ~~Nama proyek bentrok~~ → **Ditutup.** Nama diputuskan: **Kelindan**. Tidak ditemukan kolisi paket/proyek perangkat lunak. | Sisa risiko: domain & merek dagang belum dipesan. | Selesaikan pendaftaran domain/merek sebelum T3; lihat `naming-and-validation.md` §1. | Product owner |
 | **RK-08** | Satu maintainer (bus factor). | Proyek mati bila orang itu berhenti. | Dokumen keputusan (direktori ini), ADR, dan aturan "tidak ada pengetahuan yang hanya ada di kepala". **Setiap peran wajib punya pengganti yang sudah menjalankan tugasnya minimal sekali sebelum R0 selesai** (D-02). | Product owner |
 
 ---
@@ -417,5 +419,6 @@ Urutan ini mengikat karena beberapa hal di R0 menentukan R2 secara ireversibel.
 - `data-model.md` — kamus data siap-DDL Fase 1 + forward-compat Fase 2.
 - `rbac.md` — katalog aksi, peran, matriks, kasus uji.
 - `decisions-r0.md` — model operasi, peran, backup/restore, go-to-market, batas open-core.
+- `naming-and-validation.md` — keputusan nama (Kelindan) + hasil validasi skema pada PostgreSQL nyata.
 - `import-contract.md` — kontrak importer Jira (pemetaan, taksonomi kegagalan L1–L5, kolom wajib skema).
 - `prd-review.md` — kritik yang mendasari perubahan v0 → v1.0.
