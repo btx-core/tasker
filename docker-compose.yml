@@ -1,4 +1,6 @@
-# Postgres untuk pengembangan & uji. Versi 17 (ADR-018: minimum 16, diuji 16 & 17).
+# Postgres untuk pengembangan & uji (ADR-018: minimum 16; diuji 16 & 17).
+# Catatan lingkungan: sandbox agen tidak dapat menjangkau port 5432 keluar,
+# jadi uji integrasi dijalankan pada mesin developer / CI, bukan di sandbox.
 services:
   db:
     image: postgres:17
