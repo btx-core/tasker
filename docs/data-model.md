@@ -75,6 +75,8 @@ Legenda fase: **R0** = wajib di migration pertama. **R1/R2** = tabel belum dibua
 | ENT-29 | `time_entries` | R2 | Time tracking (toggle). |
 | ENT-30 | `guest_grants` | R2 | Akses guest terbatas. |
 | ENT-31 | `imports` | R0 | Riwayat impor + laporan L1–L5 sebagai artefak produk (`import-contract.md` §6). |
+| ENT-32 | `email_messages` | R0 | Jejak pengiriman email (status, attempt, sanitasi error) — `email.md` §7. |
+| ENT-33 | `email_suppressions` | R0 | Alamat yang tidak boleh dikirimi lagi (hard bounce/manual). |
 
 ---
 
@@ -279,6 +281,8 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 
 **Constraint tambahan (impor):** UNIQUE `(workspace_id, source_system, source_instance_id, source_id)` parsial WHERE `source_system IS NOT NULL` — idempotensi impor (`import-contract.md` IC-8).
 
+**Catatan `attachments`:** kolom `storage_key` tunggal **diganti** oleh `thumb_key`/`display_key`/`original_key` (`attachments-media.md` §7). `INV-09` berlaku untuk ketiganya. `body_format` (1=markdown-v1) ditambahkan pada `tasks.description` dan `comments.body` (`editor-decision.md` §3.1).
+
 **Invariant INV-04:** `version` naik tepat 1 pada setiap mutasi yang mengubah kolom yang dapat diedit; mutasi tanpa perubahan bersih tidak menaikkan versi (penting untuk idempotensi retry, ADR-015).
 **Invariant INV-07:** `started_at`, `completed_at`, `canceled_at` bersifat *first-touch*: hanya diisi bila null, tidak pernah ditimpa.
 **Catatan denormalisasi:** `workspace_id` wajib walau bisa dijoin dari `team_id` — ini disengaja (S2), dan konsistensinya dijaga trigger pembuatan task (berasal dari tim).
@@ -339,6 +343,13 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 | `size_bytes` | bigint | tidak | — | ≤ 104.857.600 |
 | `storage_key` | text | tidak | — | kunci objek di bucket; **tidak** mengekspos path internal |
 | `checksum_sha256` | text | tidak | — | integritas; dipakai untuk dedup opsional |
+| `thumb_key` | text | ya | null | wajib untuk gambar (dijaga aplikasi) |
+| `display_key` | text | ya | null | versi tampil (≤ 400 KB) |
+| `original_key` | text | ya | null | null bila asli tidak disimpan |
+| `width` / `height` | integer | ya | null | dimensi versi tampil |
+| `blurhash` | text | ya | null | placeholder tanpa unduhan |
+| `dominant_color` | text | ya | null | fallback blurhash |
+| `state` | smallint | tidak | 1 | 1=pending_upload, 2=ready, 3=failed, 4=expired |
 | `source_url` | text | ya | null | URL asal saat impor |
 | `import_status` | smallint | ya | null | 1=berhasil, 2=gagal sementara, 3=dilewati (mis. melebihi batas ukuran) |
 | `created_at` | timestamptz | tidak | now() | |

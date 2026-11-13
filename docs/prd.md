@@ -70,7 +70,8 @@ Dipakai untuk memutuskan hal yang tidak tercakup spesifikasi. Bila dua prinsip b
 5. **Kegagalan harus terlihat, bukan disembunyikan.** Sinkronisasi gagal, impor parsial, atau permission ditolak → tampilkan, jangan diam-diam membuang. Berlaku untuk UI maupun API.
 6. **Jangan mengunci data pengguna.** Ekspor penuh kapan saja dalam format terbuka, termasuk riwayat.
 7. **Kegagalan pemulihan belum terjadi hanya karena belum diuji.** Backup tanpa drill adalah asumsi (D-03).
-8. **Hemat operasional adalah fitur.** Setiap container tambahan adalah biaya yang dibayar sysadmin pelanggan. Tambah komponen hanya bila ada bukti (§7.6).
+8. **"Ramah, mudah, ringan" adalah angka, bukan sifat.** Setiap keputusan UI menyebut prinsip (`UX-n`) dan anggaran (`UX-B*`) yang dilayaninya; usulan tanpa itu ditolak (`ux-principles.md`).
+9. **Hemat operasional adalah fitur.** Setiap container tambahan adalah biaya yang dibayar sysadmin pelanggan. Tambah komponen hanya bila ada bukti (§7.6).
 
 ---
 
@@ -195,6 +196,16 @@ Workspace berisi tim; satu user bisa menjadi anggota beberapa workspace dan bebe
 Admin workspace dapat mengekspor seluruh data (JSON + CSV, termasuk komentar dan riwayat) dalam satu paket.
 - AC: ekspor dapat diimpor ulang oleh versi yang sama tanpa kehilangan data selain ID internal; ekspor berjalan sebagai job latar dengan progres dan tautan unduh berumur terbatas.
 - Konsekuensi: prinsip §3.6, `AC-10`, `ENT-20` (`jobs`), format ekspor masih terbuka (`data-model.md` §9 butir 4).
+
+**FR-116 — Lampiran & media dengan kompresi di klien.**
+Gambar dikompresi dan dibuatkan thumbnail sebelum diunggah; board tidak pernah memuat berkas asli.
+- AC: thumbnail ≤ 30 KB & versi tampil ≤ 400 KB untuk gambar 4 MB; EXIF/GPS terhapus; board 200 task bergambar tidak memicu satu pun permintaan berkas asli; unggahan gagal tidak menghilangkan berkas dari klien.
+- Konsekuensi: `attachments-media.md`, ADR-022, `T-MEDIA1…T-MEDIA12`.
+
+**FR-117 — Email sebagai jalur sekunder yang jujur.**
+Tiga mode transport (`none`/`smtp`/`relay`); alur inti tidak gagal saat email mati.
+- AC: mode `none` tidak membuat job email dan banner admin tampil; aktivasi ditolak bila `From` memakai domain email publik; 40 perubahan status pada satu task menghasilkan ≤ 1 email per 15 menit; tidak ada lampiran email; subjek tidak memuat isi pekerjaan.
+- Konsekuensi: `email.md`, ADR-021, `T-EMAIL1…T-EMAIL11`, `ENT-32`/`ENT-33`.
 
 **FR-115 — Tautan source code (kewajiban AGPL §13).**
 UI menampilkan tautan "Source code" yang menunjuk ke source versi yang sedang berjalan.
@@ -419,6 +430,13 @@ Urutan ini mengikat karena beberapa hal di R0 menentukan R2 secara ireversibel.
 - `data-model.md` — kamus data siap-DDL Fase 1 + forward-compat Fase 2.
 - `rbac.md` — katalog aksi, peran, matriks, kasus uji.
 - `decisions-r0.md` — model operasi, peran, backup/restore, go-to-market, batas open-core.
+- `email.md` — email keluar: transport, deliverability, batas kirim (ADR-021).
+- `attachments-media.md` — unggah, kompresi, thumbnail, tampilan lampiran (ADR-022).
+- `ux-principles.md` — prinsip UX + anggaran "ringan" terukur (`UX-*`).
+- `editor-decision.md` — format & pengalaman menulis (Markdown subset + editor visual).
+- `migrations.md` — aturan migrasi & jalur upgrade.
+- `api-contract.md` — kontrak API v1 (bentuk, error, idempotensi, paginasi, real-time).
+- `testing-strategy.md` — uji wajib, gerbang rilis, uji konkurensi/chaos/performa.
 - `naming-and-validation.md` — keputusan nama (Kelindan) + hasil validasi skema pada PostgreSQL nyata.
 - `import-contract.md` — kontrak importer Jira (pemetaan, taksonomi kegagalan L1–L5, kolom wajib skema).
 - `prd-review.md` — kritik yang mendasari perubahan v0 → v1.0.
