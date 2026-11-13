@@ -36,7 +36,7 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** 2026-11-13, setelah **PR #9 di-merge** ke `main` (merge commit `3a88d1f`, 64 berkas, +6470/−219).
+**Terakhir diperbarui:** 2026-11-13, setelah PR #10 di-merge (`dc0b4fd`) **dan CI ditambahkan** (branch `arena/0505c305-tasker`).
 
 | Metrik | Nilai |
 | :--- | :--- |
@@ -68,6 +68,10 @@ berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
 | # | Hal | Penghalang |
 | :--- | :--- | :--- |
+| **B-A** | ~~CI tidak ada~~ → **selesai** (`T-25`): 3 job termasuk matriks Postgres 16/17 | — |
+| **B-B** | **Login / penerbitan sesi** (gate R0 menyebut "Auth" paling depan) | Belum ada satu baris pun; demo menyuntikkan sesi (`dev-server.ts`) |
+| **B-C** | **Komentar, checklist tulis, transisi status** (gate R0) | Rute terdaftar baru 6; baca ada, tulis belum |
+| **B-D** | **Drill restore** `NFR-010`/`D-03` | Gate R0 eksplisit; butuh instance dengan WAL archiving |
 | `P5`* | Importer Jira (`S1`/`S3`/`S4`/`S6`) | **B1** — berkas ekspor Jira belum ada |
 | — | Media/lampiran, email, SSO, goals/cycles (R1), ekspor | Sengaja di luar irisan fase ini (§1) |
 | `P2-04`* | `T-PERF1` pada **Supabase**, bukan PGlite | Butuh instance jaringan; angka PGlite **bukan** bukti `NFR-004` |
@@ -79,6 +83,8 @@ berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 | # | Ringkas | Dampak bila dibiarkan |
 | :--- | :--- | :--- |
 | `T-11` | HTTP tanpa Fastify (router sendiri) | Middleware (CORS, rate limit, multipart) harus ditulis sendiri |
+| — | `Deps.db` mengembalikan `Client`, bukan `Pool` | 20 koneksi per request pada beban nyata |
+| — | `server.busy` (503) terdaftar di kontrak tapi tidak pernah dikirim | Pool penuh = galat tak tertangani |
 | `T-18` | Kartu dipindah lewat `<select>`, bukan drag-and-drop | Pengalaman `UX-5` belum tercapai |
 | `T-17`* | Jadwal pencabutan memakai jajak 1 dtk, bukan NOTIFY per-kejadian | Beban query konstan; **terukur 91 ms**, jadi bukan risiko |
 | — | Bundle/UI memakai string HTML, bukan framework | Saat komponen butuh state lokal kompleks, ini akan menahan |
@@ -245,6 +251,9 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 | **T-16** | ~~**WebSocket server belum hidup.**~~ **SELESAI**: `ws@8.18` ditambahkan, `hub.attach()` melakukan upgrade nyata, autentikasi **sebelum** upgrade (401 tanpa sesi), dan 5 uji soket nyata lulus. Node 22 punya `WebSocket` **global**, tetapi itu hanya sisi KLIEN. Membangun sisi SERVER (membaca frame, masking, control frame) butuh `ws` atau setara. | `P3-02`, `P3-04`, dan `P4-04` teruji **logikanya** (klasifikasi, celah seq, fan-out, penerapan delta) tetapi **belum pada soket nyata**. Dua-jendela < 300 ms belum diukur. | Sengaja tidak menambah dependensi di tengah P3 (konsisten dengan T-11). Autentikasi **sebelum** upgrade sudah ditulis & ditegakkan. **Wajib diselesaikan sebelum klaim real-time.** |
 | **T-17** | ~~`LISTEN`/`NOTIFY` lintas proses **belum ada**~~ **SELESAI**: `hub.startListening()` + `pg_notify` di `write.ts` terbukti sampai ke klien WebSocket lintas koneksi. Sisa: **jadwal pencabutan** (`team_members` → `revokeTeam`) belum ada, jadi "pencabutan < 5 s" belum diukur. PGlite satu koneksi; tidak ada proses pemantau `team_members`. | Klaim "pencabutan < 5 s" (TC-15) belum diukur; `resync_required` diuji secara logika, bukan setelah retensi 24 jam nyata. | Batas dinyatakan terbuka. Butuh Postgres jaringan + dua proses. |
 | **T-18** | Kontrol pindah kartu memakai `<select>` per kartu, **bukan** drag-and-drop native. | Menggerakkan kartu butuh dua Tab + Enter; bukan pengalaman `UX-5` yang dituju. | Keputusan fase: membuktikan `PATCH` optimistis + rollback + konflik lebih dahulu daripada gesture. Struktur kartu sudah `draggable="true"`, jadi DnD tinggal mengikat event. **Wajib sebelum R0 dinilai.** |
+| **T-25** | **Tidak ada CI sama sekali.** `.github/workflows/` kosong sejak P0, sehingga 189 uji hanya berjalan bila seseorang ingat menjalankannya. | Kode di `main` **terlihat** teruji, dan tidak ada yang memberi tahu bahwa tidak ada yang menjaganya. Ini kelas kegagalan yang tak terlihat — karena itu paling berbahaya dari semua yang tercatat di dokumen ini. | `.github/workflows/verify.yml`: 3 job (unit, matriks Postgres 16/17, penjaga repo). `testing-strategy.md` §10 butir 6 mensyaratkan matriks 16/17; sebelumnya hanya 16.2 & 18.6 pernah dijalankan. |
+| **T-26** | **Gerbang "jangan hijau palsu" saya sendiri salah dua kali.** (a) `grep skipped` tanpa angka → selalu `exit 0`. (b) `grep ... \| head -1` pada log unit membaca **7** (berkas pertama), bukan **17** (total), sehingga CI akan gagal tanpa alasan yang benar. | CI merah acak, atau lebih buruk: hijau sementara semua uji jaringan dilewati. | Diperbaiki: `scripts/assert-not-skipped.sh` mencocokkan **angka + kata** dan menolak log tanpa uji; job unit mencocokkan baris **ringkasan** dan mengharuskan tepat 17. Kedua arah diuji pada log nyata. |
+| **T-27** | Penjaga kredensial CI menandai `packages/shared/src/config.test.ts` sebagai kebocoran (`postgres://u:p@localhost/db` di fixture). | Penjaga yang memblokir setiap PR akan dimatikan orang, dan setelah dimatikan ia tidak menjaga apa pun. | Berkas uji dikecualikan. Setiap penjaga baru harus diuji pada repo **yang sudah bersih**, bukan hanya pada kasus buruk. |
 | **T-19** | `apps/server` dan `packages/server` sama-sama bernama `@kelindan/server` (warisan `70049ea`). | `npm install` **apa pun** gagal dengan `EDUPLICATEWORKSPACE` — termasuk `npm ci` di CI. | Ditemukan saat mencoba menambah `esbuild`. `apps/server` di-rename `@kelindan/server-app` (composition root). **Ini bug yang akan mematikan CI hari pertama.** |
 | **T-20** | `Idempotency-Key` non-UUID sampai ke PostgreSQL (`operation_id` bertipe `uuid`) → **500**, bukan 400. Ditemukan saat menjalankan demo, bukan lewat uji. | Klien yang salah melihat galat server; operator disuruh mencari log untuk kesalahan klien. | Bentuk kunci diperiksa di handler. Kontrak `api-contract.md` §6 menyebut `<ULID>` tetapi kolomnya `uuid` — **UUIDv7 yang diterima**, dicatat sebagai penyimpangan sadar. |
 | **T-14** | **Index `ix_tasks_board` tidak dipakai untuk urutan board.** Index menyimpan `id` **ASC** (bawaan), sedangkan board mengurutkan `updated_at DESC, id DESC`. PostgreSQL tidak bisa memakai index untuk campuran arah → menambah `Incremental Sort` di atas **7.200 baris/kolom**. | Terukur: board 50 rb task **p95 ~900 ms**; setelah arah `id DESC` ditambahkan → **15 ms**. Pada 500 rb baris ini menjadi kegagalan `NFR-004` yang diam-diam, persis yang diperingatkan `perf-validation.md`. | Ditemukan P2-04 lewat `EXPLAIN`, bukan lewat angka. **Pelajaran: "index sudah ada" ≠ "index dipakai".** Definisi index diperbaiki di `0009_tasks.sql` + `data-model.md`. |
@@ -270,6 +279,9 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 
 ---
 | 2026-11-13 | **PR #9 di-merge ke `main` (`3a88d1f`)** — 64 berkas, +6470/−219. Ringkasan status di atas diperbarui sesuai §0 aturan 6. Yang masuk `main`: seluruh P0–P4, `docs/testing-realpg.md`, `npm run pg:up`, `RevocationWatcher` (TC-15 terukur 91 ms). **Yang TIDAK masuk:** importer (B1), DnD native (T-18), uji dua jendela browser, `T-PERF1` di Supabase. |
+
+---
+| 2026-11-13 | **CI DITAMBAHKAN (`T-25`)**: `.github/workflows/verify.yml` — job `unit` (typecheck + lint + batas + 189 uji + bundel), job matriks **Postgres 16/17** (28 uji jaringan), job `guard` (migrasi destruktif, kredensial, artefak build). Dua bug di gerbang saya sendiri ditemukan dan diperbaiki (**T-26**), satu positif palsu penjaga kredensial diperbaiki (**T-27**). Sisa bloker gate R0 dicatat terbuka: **login (B-B)**, **komentar/checklist/transisi (B-C)**, **drill restore (B-D)**. |
 
 ---
 
