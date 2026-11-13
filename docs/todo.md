@@ -36,14 +36,14 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** 2026-11-13, setelah PR #10 di-merge (`dc0b4fd`) **dan CI ditambahkan** (branch `arena/0505c305-tasker`).
+**Terakhir diperbarui:** 2026-11-13, setelah **PR #11 di-merge** (`f85a834`). **CI kini hijau di 4 job**, termasuk matriks Postgres 16 & 17.
 
 | Metrik | Nilai |
 | :--- | :--- |
 | Uji cepat (`npm test`) | **189 lulus**, 17 dilewati *dengan alasan tercetak* |
 | Uji jaringan (`npm run test:realpg`) | **28 lulus** pada PostgreSQL 18.6 sungguhan |
 | Bundel UI | **3,8 KB gzip** (anggaran 60 KB) |
-| Di `main` | seluruh kode P0–P4, `docs/testing-realpg.md`, `npm run pg:up` |
+| Di `main` | seluruh kode P0–P4, `docs/testing-realpg.md`, `npm run pg:up`, **CI 4 job hijau** |
 
 ### Selesai — dengan bukti yang bisa dijalankan ulang
 
@@ -294,6 +294,9 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 
 ---
 | 2026-11-13 | **CI run ketiga: gerbang masih merah, akar masalahnya `T-30`.** Log `\| tee` kosong di runner (vitest menulis ke TTY), sehingga gerbang melaporkan "tidak ada baris ringkasan" padahal 28 uji lulus. Ditemukan lewat **annotation check-run**, karena log mentah tidak dapat diunduh dari sandbox. Gerbang dipindah ke **JSON reporter** (`scripts/test-gate.mjs`), diuji pada empat keadaan + log nyata. |
+
+---
+| 2026-11-13 | **PR #11 di-merge (`f85a834`) — CI HIJAU, 4 job:** unit, postgres 16, postgres 17, penjaga repo. Butuh **tiga run** untuk sampai ke sana, dan setiap kegagalan membuka bug nyata: `T-28` (tsc sukses palsu), `T-29` (gerbang positif palsu), `T-30` (log pipe tidak andal). Ketiganya hanya bisa ditemukan dengan **menjalankan CI sungguhan**, bukan mengandalkan pemeriksaan lokal. Ringkasan status diperbarui sesuai §0 aturan 6. |
 
 ---
 
