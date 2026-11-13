@@ -5,13 +5,10 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { MIN_EXPECTED_FILES, componentFiles } from "./scan.js";
 
-const components = [
-  "apps/web/src/components/board.ts",
-  "apps/web/src/components/login.ts",
-  "apps/web/src/components/task-panel.ts",
-  "apps/web/src/main.ts",
-];
+/** T-45: dipindai, bukan didaftar manual — lihat catatan di `scan.ts`. */
+const components = componentFiles();
 const FORBIDDEN = [
   /\.getDate\(\)/, /\.getMonth\(\)/, /\.getFullYear\(\)/,
   /toLocaleDateString\(/, /toLocaleString\(/,
@@ -20,6 +17,10 @@ const FORBIDDEN = [
 ];
 
 describe("T-I18N3: format lewat modul format", () => {
+  it("penemuan berkas menemukan komponen (bukan hijau palsu)", () => {
+    expect(components.length).toBeGreaterThanOrEqual(MIN_EXPECTED_FILES);
+  });
+
   for (const f of components) {
     it(`${f} tidak memformat tanggal/angka sendiri`, () => {
       const src = readFileSync(f, "utf8");
