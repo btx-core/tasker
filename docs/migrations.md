@@ -94,6 +94,7 @@ Contoh kanonik: mengganti nama kolom `tasks.due_date` → `tasks.deadline`.
 | Rename objek dengan `ALTER … RENAME` pada jalur panas | Bergantung pada dual-compatibility; sering memecah ORM | Tambah baru + contract |
 | `TRUNCATE`/`DELETE` tanpa `WHERE` di migrasi | Bisa menghapus data pengguna | Dilarang mutlak. Data seed lewat katalog aplikasi (§6). |
 | `CREATE EXTENSION` tanpa `IF NOT EXISTS` dan tanpa cek hak | Gagal di sebagian instalasi | `CREATE EXTENSION IF NOT EXISTS` + preflight (§8) |
+| `CREATE EXTENSION` **tanpa `WITH SCHEMA` eksplisit** saat ekstensi sudah ada di schema lain | Membuat ekstensi kedua di `public` atau gagal; tipe tidak terlihat oleh `search_path` (temuan T1) | Deteksi schema ekstensi yang ada lebih dulu; bila membuat baru, sebut `WITH SCHEMA` secara eksplisit |
 | Advisory lock berbasis **sesi** pada koneksi yang lewat pooler | Pooler transaction mode memindahkan koneksi (ADR-020) | Migrasi memakai koneksi **langsung (tanpa pooler)**, bukan koneksi aplikasi |
 
 ---
@@ -131,7 +132,7 @@ Runner adalah bagian dari aplikasi (perintah CLI), bukan proses otomatis tersemb
 
 | Tahap | Perilaku |
 | :--- | :--- |
-| **Preflight** | Cek versi Postgres (≥ 16, ADR-018), ekstensi wajib (`pgcrypto`, `citext`, `pg_trgm`), ruang disk (perkiraan ukuran migrasi × 3), dan hak peran. Gagal → berhenti dengan pesan yang bisa ditindaklanjuti. |
+| **Preflight** | Cek versi Postgres (≥ 16, ADR-018), ekstensi wajib (`pgcrypto`, `citext`, `pg_trgm`) **beserta schema tempatnya berada**, ruang disk (perkiraan ukuran migrasi × 3), dan hak peran. Gagal → berhenti dengan pesan yang bisa ditindaklanjuti. **Catatan hasil uji (T1, `demo-migrations-report.md`):** memeriksa keberadaan ekstensi saja **tidak cukup** — pada Supabase dan banyak instalasi terkelola, ekstensi berada di schema `extensions`, bukan `public`, dan `CREATE TABLE` gagal dengan `type "citext" does not exist` padahal ekstensinya ada. Preflight wajib memeriksa `pg_extension.extnamespace` dan menyertakan schema itu ke `search_path`. |
 | **Lock** | `pg_advisory_lock` pada koneksi **langsung** (tanpa pooler), dengan timeout 30 s. Instance kedua yang mencoba migrasi bersamaan menunggu, bukan menjalankan paralel. |
 | **Verifikasi checksum** | Migrasi yang sudah tercatat tapi checksum berbeda → **berhenti**, tampilkan nama berkas. Tidak pernah "memperbaiki otomatis". |
 | **Eksekusi** | Satu migrasi per transaksi, kecuali header `-- transaction: no`. Wajib set `lock_timeout` (3 s) dan `statement_timeout` (60 s, kecuali dinyatakan lain) agar gagal cepat alih-alih mengantre di belakang lock. |

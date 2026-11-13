@@ -43,7 +43,7 @@ Klaim skema di `data-model.md` sebelumnya tidak pernah dieksekusi. Validasi ini 
 
 | # | Klaim di dokumen | Hasil |
 | :--- | :--- | :--- |
-| V1 | Skema bisa dibuat tanpa ekstensi eksotis | ✅ `gen_random_uuid()` (pgcrypto) + `citext` + `pg_trgm` cukup. Tidak butuh `btree_gist`, tidak butuh fungsi UUIDv7 di DB. |
+| V1 | Skema bisa dibuat tanpa ekstensi eksotis | ✅ `gen_random_uuid()` (pgcrypto) + `citext` + `pg_trgm` cukup. Tidak butuh `btree_gist`, tidak butuh fungsi UUIDv7 di DB. **Koreksi dari uji eksekusi (T1, `demo-migrations-report.md`):** "tersedia" bukan berarti "tersedia di `public`". Pada Supabase ketiganya berada di schema `extensions`; migrasi & preflight wajib menangani schema ekstensi, bukan mengasumsikan `public`. |
 | V2 | `citext` untuk `users.email` dan pencarian judul case-insensitive | ✅ tersedia dan berfungsi. |
 | V3 | CHECK constraint bentuk "`kind = 1` ⇔ `category_to IS NOT NULL`" (INV-15) | ✅ sah dan ditegakkan. |
 | V4 | Unique partial index "tepat satu status default per tim" (INV-05) | ✅ sah: `UNIQUE (team_id) WHERE is_default AND archived_at IS NULL`. |
