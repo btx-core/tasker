@@ -1,7 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/shared" },
-    { "path": "./packages/db" }
+    {
+      "path": "./packages/shared"
+    },
+    {
+      "path": "./packages/db"
+    },
+    {
+      "path": "./packages/testing"
+    },
+    {
+      "path": "./packages/server"
+    }
   ]
 }
