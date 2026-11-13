@@ -1,7 +1,15 @@
 {
-  "name": "@kelindan/server",
+  "name": "@kelindan/server-app",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "dependencies": { "@kelindan/shared": "*", "@kelindan/db": "*" }
+  "dependencies": {
+    "@kelindan/server": "*",
+    "@kelindan/shared": "*",
+    "@kelindan/testing": "*"
+  },
+  "description": "Tempat binari masuk (composition root). Logika ada di packages/server.",
+  "scripts": {
+    "dev": "node --experimental-strip-types src/dev-server.ts"
+  }
 }

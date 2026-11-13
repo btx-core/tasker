@@ -18,6 +18,7 @@
 | L3 | **`packages/db` adalah satu-satunya tempat SQL** | `INV-12` (setiap query menyertakan `workspace_id`) harus punya tempat tinggal yang bisa ditegakkan lint | SQL tersebar di route handler |
 | L4 | **`apps/web` tidak pernah menyentuh DB** | Satu jalur otorisasi (`ADR-003`). Bila web bisa query DB, akan ada dua jalur izin dan satu di antaranya pasti lupa | BFF yang query langsung |
 | L5 | **Tidak ada generator/abstraksi yang menyembunyikan HTTP** | Kontrak API adalah artefak (`api-contract.md` §9); tRPC/GraphQL codegen menyembunyikan bentuk yang justru ingin diuji | tRPC, codegen RPC |
+| L5b | **HTTP memakai router bawaan Node pada fase P1** (menyimpang dari §2 yang menyebut Fastify) | Fase ini membuktikan kebenaran jalur tulis, bukan memilih framework; tiap dependensi menambah permukaan yang harus dipercaya sebelum ada satu pengguna | **Wajib ditinjau sebelum P4** — saat CORS, rate limit, dan multipart media benar-benar dibutuhkan. Logika ada di `routes.ts`, jadi penggantian tidak menyentuh rute. Lihat T-11 di `todo.md` |
 | L6 | **Semua tipe & validator kontrak lahir dari `packages/shared`** | Satu sumber tipe untuk web & server (ADR-010); mencegah kontrak ganda | Tipe ditulis ulang di dua tempat |
 
 ---
@@ -218,3 +219,18 @@ Sebuah PR dianggap selesai hanya bila **semua** terpenuhi. Ini yang membuat doku
 - Uji per lapisan: `testing-strategy.md`
 - Katalog string: `i18n.md`
 - DCO & lisensi: `architecture.md` ADR-014
+
+## 11. Penyimpangan yang dicatat (bukan kelalaian)
+
+Fase P1–P4 mencatat penyimpangan berikut di `todo.md`, bukan menyembunyikannya:
+
+| # | Penyimpangan | Alasan | Kapan ditinjau |
+| :--- | :--- | :--- | :--- |
+| T-11 | HTTP memakai router bawaan Node, bukan Fastify | Membuktikan jalur tulis lebih dulu; tiap dependensi menambah permukaan | sebelum P4 selesai / saat CORS & multipart dibutuhkan |
+| T-16 | WebSocket server belum ada (`ws` belum ditambahkan) | Konsisten dengan T-11; logika real-time tetap diuji tanpa soket | **sebelum klaim real-time** |
+| T-18 | Kartu dipindah lewat `<select>`, bukan drag-and-drop | Membuktikan PATCH optimistis + rollback + konflik lebih dulu | sebelum R0 dinilai |
+| — | UI dirender sebagai string + `esbuild`, tanpa framework | Fase ini menguji kontrak, bukan memilih pustaka UI | saat komponen mulai butuh state lokal yang kompleks |
+
+**Yang TIDAK boleh disimpulkan** dari penyimpangan di atas: bahwa framework atau dependensi tidak akan pernah dipakai. Yang disimpulkan: **belum ada alasan terukur untuk memakainya sekarang**, dan menambahkannya tanpa alasan membuat setiap bug berikutnya lebih sulit dilacak.
+
+Bundel UI saat ini **3,8 KB gzip**. Setiap framework yang ditambahkan kelak harus dipertanggungjawabkan terhadap angka itu.

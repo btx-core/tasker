@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/out/**", "examples/**", "**/*.test.ts", "**/__lint_probe__/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/out/**", "**/public/**", "examples/**", "**/*.test.ts", "**/__lint_probe__/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -13,7 +13,10 @@ export default tseslint.config(
     },
   },
   {
+    // UI berjalan di BROWSER, bukan Node: `document`, `window`, `fetch` ada;
+    // `process` tidak. Tanpa ini, aturan Node menyembunyikan kesalahan nyata.
     files: ["apps/web/**/*.{ts,tsx}"],
+    languageOptions: { globals: { ...globals.browser } },
     rules: {
       "no-restricted-imports": ["error", {
         patterns: [

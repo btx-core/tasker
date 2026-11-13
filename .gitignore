@@ -7,3 +7,6 @@ coverage/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Bundel UI (dibuat oleh `npm run build:web`)
+apps/web/public/
