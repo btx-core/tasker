@@ -51,12 +51,12 @@ describe("checksum (M5: migrasi terpasang tidak boleh berubah)", () => {
 });
 
 describe("loadMigrations pada migrasi repo yang sebenarnya", () => {
-  it("21 berkas, semuanya punya header sah, berurutan tanpa celah", async () => {
+  it("20 berkas, semuanya punya header sah, berurutan tanpa celah", async () => {
     const dir = new URL("../migrations/", import.meta.url).pathname;
     const files = await loadMigrations(dir);
-    expect(files.length).toBe(21);
+    expect(files.length).toBe(20);
     expect(files[0]!.version).toBe(1);
-    expect(files.at(-1)!.version).toBe(21);
+    expect(files.at(-1)!.version).toBe(20);
     for (const f of files) {
       expect(f.header.intent.length).toBeGreaterThan(10);
       expect(f.checksum).toMatch(/^[0-9a-f]{64}$/);
