@@ -6,3 +6,5 @@ export * from "./tasks/read.js";
 export * from "./tasks/list.js";
 export * from "./tasks/detail.js";
 export * from "./auth/sessions.js";
+export * from "./tasks/comments.js";
+export * from "./tasks/checklist.js";
