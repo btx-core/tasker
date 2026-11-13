@@ -37,12 +37,15 @@ jobs:
       - run: npm run lint
       - run: npm run lint:boundary
       - name: unit test (tanpa database jaringan)
-        run: npm test 2>&1 | tee /tmp/unit.log
+        # `tee` pada output manusia TIDAK bisa diandalkan: di CI, vitest
+        # menulis progresnya ke TTY, dan yang tertangkap pipe bisa kosong.
+        # Reporter JSON menulis ringkasan yang bisa dibaca mesin ke berkas.
+        run: npx vitest run --reporter=json --outputFile=/tmp/unit.json
       - name: pastikan jumlah uji yang dilewati tidak berubah
         # Di job ini database TIDAK tersedia, jadi uji jaringan memang harus
         # dilewati — tepat 17. Kalau angkanya bergeser, ada uji yang berhenti
         # berjalan tanpa ada yang memberi tahu.
-        run: bash scripts/assert-skip-count.sh /tmp/unit.log 17
+        run: node scripts/test-gate.mjs /tmp/unit.json --expect-skipped 17
       - name: anggaran bundel UI
         # `npm run build` di awal job sudah menghasilkan bundel; di sini hanya
         # diperiksa ukurannya. Menjalankan `build:web` lagi akan menyembunyikan
@@ -101,9 +104,10 @@ jobs:
         # hijau meskipun `KELINDAN_PG_URL` salah ketik — dan hijau palsu lebih
         # berbahaya daripada merah.
         run: |
-          npm run test:realpg 2>&1 | tee /tmp/realpg.log
+          npx vitest run packages/db/src/tasks/concurrency.realpg.test.ts packages/server/src/ws \
+            --reporter=json --outputFile=/tmp/realpg.json
       - name: gerbang "jangan hijau palsu"
-        run: bash scripts/assert-not-skipped.sh /tmp/realpg.log
+        run: node scripts/test-gate.mjs /tmp/realpg.json --no-skipped
 
   # Lapis 3 — invarian yang tidak boleh dibiarkan "belum pernah dijalankan".
   # Sengaja terpisah dari `unit` supaya kegagalannya menunjuk langsung ke
