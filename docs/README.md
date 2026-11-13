@@ -19,6 +19,11 @@ Per 2026-11-12, **seluruh 12 celah desain sudah ditutup** (`gaps-analysis.md`), 
 | [`architecture.md`](./architecture.md) | Keputusan arsitektur (ADR-001…ADR-014), topologi, profil deployment, model ancaman cache klien | **Aktif** — sumber kebenaran teknis |
 | [`data-model.md`](./data-model.md) | Kamus data Fase 1 siap-DDL: entitas, kolom, constraint, index, invariant, state machine | **Aktif** — sumber kebenaran skema |
 | [`rbac.md`](./rbac.md) | Katalog aksi, peran, matriks permission, invariant, kasus uji | **Aktif** — sumber kebenaran otorisasi |
+| [`spike-jira-results.md`](./spike-jira-results.md) | **Hasil spike importer**: konverter ADF→Markdown teruji pada 6 fixture (72 node, 0 teks hilang), 3 bug ditemukan. S1/S3/S4/S6 tetap tertutup | **Aktif** — bukti |
+| [`perf-validation.md`](./perf-validation.md) | **Validasi performa** pada dataset acuan 50.000 task: `NFR-004` p95 0,23 ms, `NFR-006` p95 32 ms, 1 batas ditemukan | **Aktif** — bukti |
+| `examples/jira-importer/` | Konverter ADF→Markdown + 6 fixture + pelari uji (`.mjs`, tanpa dependensi) | Artefak spike |
+| [`demo-migrations-report.md`](./demo-migrations-report.md) | **Laporan eksekusi nyata** 21 migrasi pada PostgreSQL 17.11 + 6 uji penolakan constraint + 2 temuan yang mengubah dokumen | **Aktif** — bukti |
+| `examples/migrations/` | **21 migrasi SQL demo** (0001–0021) — dieksekusi pada Postgres nyata, schema lalu di-drop | Contoh yang sudah terbukti |
 | [`repo-layout.md`](./repo-layout.md) | **Dokumen A** — tata letak repo, batas modul, kontrak perintah, konfigurasi, definisi "selesai" PR, alur git | **Aktif** — prasyarat kode |
 | [`versioning.md`](./versioning.md) | **Dokumen B** — SemVer & janji tiap angka, saluran rilis, format catatan rilis, deprecation, konvensi kontribusi | **Aktif** — mengikat |
 | [`support.md`](./support.md) | Dukungan: kanal & janji respons, triase P1–P5, bundle diagnostik aman, batas dukungan | **Aktif** — mengikat |
@@ -56,10 +61,13 @@ Dokumen v0 tidak lagi menjadi acuan. Di mana dokumen v0 dan direktori ini berbed
 10. `realtime-and-search.md` + `onboarding.md` — perilaku tepi real-time, pencarian, dan menit pertama (C7, C8, C11).
 11. `spike-jira-importer.md` — apa yang bisa diselesaikan tanpa data Jira dan apa yang **tidak** (S1–S6).
 12. `support.md` + `i18n.md` — dua celah terakhir (C10, C12).
-13. `repo-layout.md` + `versioning.md` — **baca sebelum commit pertama**: struktur repo, batas modul, definisi "selesai", dan aturan rilis.
-14. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
-15. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
-16. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
+13. `perf-validation.md` — SLO yang **sudah diukur**, dan tiga keputusan yang berubah karenanya.
+14. `spike-jira-results.md` + `examples/jira-importer/` — konverter importer yang sudah bekerja, dan apa yang tetap menunggu data Jira.
+15. `demo-migrations-report.md` + `examples/migrations/` — **bukti** bahwa skema bisa dibuat dan constraint-nya menolak. Baca temuan T1 (schema ekstensi) sebelum menulis migrasi pertama.
+16. `repo-layout.md` + `versioning.md` — **baca sebelum commit pertama**: struktur repo, batas modul, definisi "selesai", dan aturan rilis.
+17. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
+18. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
+19. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
 
 ## Konvensi ID
 

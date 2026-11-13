@@ -1,0 +1,13 @@
+{
+  "version":1,"type":"doc","content":[
+    {"type":"extension","attrs":{"extensionKey":"toc","extensionType":"com.atlassian.confluence.macro.core"}},
+    {"type":"paragraph","content":[{"type":"text","text":"Lihat "},
+      {"type":"inlineCard","attrs":{"url":"https://contoh.atlassian.net/browse/ENG-1"}},
+      {"type":"text","text":"."}]},
+    {"type":"bodiedExtension","attrs":{"extensionKey":"panel-custom"},"content":[
+      {"type":"paragraph","content":[{"type":"text","text":"Teks di dalam macro tetap harus selamat."}]}]},
+    {"type":"mediaSingle","attrs":{"layout":"center"},"content":[
+      {"type":"media","attrs":{"id":"abc-123","type":"file","collection":""}}]},
+    {"type":"blockCard","attrs":{"url":"https://contoh.atlassian.net/wiki/x"}}
+  ]
+}

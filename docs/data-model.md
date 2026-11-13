@@ -186,7 +186,9 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 | `revoked_at` | timestamptz | ya | null | |
 
 **Constraint:** UNIQUE `(team_id, user_id)`. CHECK `role IN (1,2,3,4)`.
-**Invariant INV-03:** `team_members` hanya boleh ada bila user punya `workspace_members` aktif di workspace yang sama. Ditegakkan aplikasi **dan** job pemeriksa harian (jangan andalkan FK lintas-tabel yang tidak bisa dinyatakan).
+**Invariant INV-03:** `team_members` hanya boleh ada bila user punya `workspace_members` aktif di workspace yang sama. Ditegakkan aplikasi **dan** job pemeriksa harian.
+
+**Koreksi dari uji eksekusi (T2, `demo-migrations-report.md`):** klaim "tidak bisa dinyatakan sebagai FK" **terlalu luas**. Yang tidak bisa dinyatakan adalah bagian **"aktif"** (karena `revoked_at` bisa berubah tanpa menyentuh baris ini). Bagian **"punya `workspace_members`"** sepenuhnya bisa ditegakkan dengan FK komposit `(workspace_id, user_id) -> workspace_members (workspace_id, user_id)` — dan itu mencegah mayoritas bug yang sebenarnya. Implementasi **wajib** memakai FK komposit ini **ditambah** pemeriksaan aplikasi untuk bagian "aktif"; bukan memilih salah satu.
 **Catatan:** `workspace role = admin` **tidak otomatis** menjadi admin di setiap tim untuk aksi yang ditandai "butuh keanggotaan tim" — pemetaan eksplisit di `rbac.md`. Ini mencegah admin workspace diam-diam bisa mengedit semua task tanpa jejak.
 
 ---
@@ -276,7 +278,7 @@ Format kolom: `nama — tipe — null? — default — catatan`.
 | `(workspace_id, due_date)` parsial `deleted_at IS NULL AND completed_at IS NULL` | Tampilan tenggat & pengingat. |
 | `(workspace_id, goal_id)` parsial `goal_id IS NOT NULL` | Progress Goal (R1). |
 | `(workspace_id, cycle_id)` parsial `cycle_id IS NOT NULL` | Cycle view (R1). |
-| GIN `description_tsv` | Pencarian (ADR-005). |
+| GIN `description_tsv` | Pencarian (ADR-005). **CATATAN IMPLEMENTASI (temuan P1, `perf-validation.md`):** GIN tunggal pada `tsvector` membuat filter `workspace_id` jatuh sebagai *post-filter* (diverifikasi: 5000 baris diperiksa, 4548 heap block dibaca untuk satu kata umum). Index pencarian wajib memuat `workspace_id` — `USING gin (workspace_id, description_tsv)` dengan `btree_gin`, atau index terpisah + batas hasil yang tegas. |
 | `(title gin_trgm_ops)` | Pencarian judul dengan salah ketik. |
 
 **Constraint tambahan (impor):** UNIQUE `(workspace_id, source_system, source_instance_id, source_id)` parsial WHERE `source_system IS NOT NULL` — idempotensi impor (`import-contract.md` IC-8).
@@ -509,7 +511,7 @@ Ditulis sekarang agar kolom R0 yang menghubungkan tidak perlu diubah.
 | :--- | :--- | :--- | :--- |
 | **INV-01** | Setiap workspace punya ≥ 1 owner aktif | Aplikasi + job pemeriksa | Uji integritas |
 | **INV-02** | Anggota workspace yang dicabut tidak punya keanggotaan tim aktif | Transaksi pencabutan | Uji integritas |
-| **INV-03** | Keanggotaan tim hanya untuk anggota workspace aktif | Aplikasi + job pemeriksa harian | Uji integritas |
+| **INV-03** | Keanggotaan tim hanya untuk anggota workspace aktif | FK komposit (keanggotaan) + aplikasi (aktif) + job pemeriksa | Uji integritas |
 | **INV-04** | `version` naik tepat 1 per mutasi bersih | Repository (satu jalur tulis) | Uji konkurensi |
 | **INV-05** | Tepat satu status default aktif per tim | Unique partial index | Uji constraint |
 | **INV-06** | Status yang dipakai task tidak dihapus keras | Job pencegah + FK tanpa cascade | Uji constraint |

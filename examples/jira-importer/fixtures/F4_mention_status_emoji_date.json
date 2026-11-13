@@ -1,0 +1,19 @@
+{
+  "version":1,"type":"doc","content":[
+    {"type":"paragraph","content":[
+      {"type":"mention","attrs":{"id":"557058:abc","text":"@budi"}},
+      {"type":"text","text":" tolong cek "},
+      {"type":"status","attrs":{"text":"Dikerjakan","color":"blue"}},
+      {"type":"text","text":" sebelum "},
+      {"type":"date","attrs":{"timestamp":"1793000000000"}},
+      {"type":"text","text":" "},
+      {"type":"emoji","attrs":{"shortName":":rocket:","text":"🚀"}},
+      {"type":"text","text":" "},
+      {"type":"text","text":"garis bawah","marks":[{"type":"underline"}]},
+      {"type":"text","text":" dan "},
+      {"type":"text","text":"coret","marks":[{"type":"strike"}]},
+      {"type":"hardBreak"},
+      {"type":"text","text":"baris kedua"}
+    ]}
+  ]
+}
