@@ -6,7 +6,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const components = ["apps/web/src/components/board.ts", "apps/web/src/main.ts"];
+const components = [
+  "apps/web/src/components/board.ts",
+  "apps/web/src/components/login.ts",
+  "apps/web/src/components/task-panel.ts",
+  "apps/web/src/main.ts",
+];
 const FORBIDDEN = [
   /\.getDate\(\)/, /\.getMonth\(\)/, /\.getFullYear\(\)/,
   /toLocaleDateString\(/, /toLocaleString\(/,
