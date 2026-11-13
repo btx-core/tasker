@@ -30,7 +30,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
+      # `node scripts/build.mjs` = tsc -b --force + verifikasi dist + bundel UI.
+      # `--force` WAJIB: lihat T-28, `tsbuildinfo` membuat `tsc -b` diam-diam
+      # tidak menghasilkan apa pun.
+      - run: npm run build
       - run: npm run lint
       - run: npm run lint:boundary
       - name: unit test (tanpa database jaringan)
@@ -51,8 +54,11 @@ jobs:
             echo "::error::jumlah uji yang dilewati berubah ($n, diharapkan 17). Periksa apakah uji jaringan ikut dilewati pada PR ini."
             exit 1
           fi
-      - name: bundel UI
-        run: npm run build:web && npm run bundle:check
+      - name: anggaran bundel UI
+        # `npm run build` di awal job sudah menghasilkan bundel; di sini hanya
+        # diperiksa ukurannya. Menjalankan `build:web` lagi akan menyembunyikan
+        # kegagalan urutan build seperti T-28.
+        run: npm run bundle:check
 
   # Lapis 2 — PostgreSQL sungguhan. Inilah yang membuktikan konkurensi,
   # LISTEN/NOTIFY, dan pencabutan akses; tidak satu pun bisa dibuktikan PGlite.
@@ -88,6 +94,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # WAJIB. Ini kesalahan pertama CI versi ini: `npm ci` tidak membangun
+      # apa pun, sedangkan uji mengimpor `@kelindan/db` yang menunjuk ke
+      # `dist/`. Tanpa langkah ini seluruh job gagal dengan
+      # "Failed to resolve entry for package @kelindan/db" — dan itu TERJADI
+      # pada run pertama, bukan hipotesis.
+      - name: bangun paket (wajib sebelum uji)
+        # Tanpa ini uji gagal "Failed to resolve entry @kelindan/db" — sudah
+        # terjadi pada run pertama CI.
+        run: npm run build
       - name: ekstensi yang dibutuhkan skema
         run: |
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d kelindan_test \
