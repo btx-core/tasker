@@ -36,7 +36,7 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** 2026-11-13, **B-B (login/sesi) selesai** di branch `arena/30937edd-tasker`. CI tetap hijau di 4 job.
+**Terakhir diperbarui:** 2026-11-13, setelah **PR #13 di-merge** (`5ae68f6`). **B-B (login/sesi) selesai dan terverifikasi** — CI hijau di 4 job.
 
 | Metrik | Nilai |
 | :--- | :--- |
@@ -280,6 +280,7 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 
 | Tanggal | Perubahan |
 | :--- | :--- |
+| 2026-11-13 | **PR #13 di-merge (`5ae68f6`) — B-B selesai, CI hijau 4 job.** Satu run merah di tengah jalan, dan penyebabnya bukan perilaku: gerbang `--expect-skipped 17` menolak **29** uji dilewati karena uji jaringan baru ditambahkan. **Angka tetap adalah gerbang yang akan merah setiap kali ada uji baru** — dan merah karena administrasi melatih orang mengabaikan merah. Gerbang kini menerima **rentang 17–100** yang menangkap dua kegagalan nyata (uji jaringan berjalan tanpa DB; uji berhenti didaftarkan), diuji pada empat keadaan. Angka tetap 17 dipertahankan sebagai jalur yang masih didukung. |
 | 2026-11-13 | **B-B (login/sesi) selesai.** `sessions` kini benar-benar ditulis: token 256-bit hanya dikirim ke klien, yang tersimpan SHA-256-nya (diuji dengan mencari token mentah di seluruh kolom teks). Endpoint `POST /v1/auth/login`, `/logout`, `/logout-all`, `GET /v1/me`, `POST /v1/auth/touch`. Halaman login dengan `<form>` + `autocomplete`. `dev-server` tidak lagi menyuntikkan cookie `demo` — demo login seperti pengguna. **Tujuh temuan** (`T-31`…`T-37`), dan yang paling penting bukan salah satunya: **empat dari tujuh hanya muncul saat server benar-benar dijalankan atau saat uji diperketat**, bukan saat kode dibaca. `T-34` = `npm run dev` tidak bisa start sementara 225 uji hijau. Uji: 225 lulus, 29 dilewati; 40 uji jaringan; bundel 4,7 KB gzip. |
 | 2026-11-12 | Dokumen dibuat. `P0` siap dikerjakan. B1–B3 tercatat sebagai bloker yang **tidak** menghalangi `P0`–`P4`. |
 | 2026-11-12 | **VERIFIKASI NYATA.** PGlite (PostgreSQL 18.6 WASM) dipakai untuk menjalankan `write.ts` dan `migrate()` yang ASLI: **61 uji lulus, 0 dilewati**. `P0-07` akhirnya **selesai & teruji**. Tiga bug nyata ditemukan & diperbaiki: T-07 (`SHOW` → `current_setting`), T-08 (`pgcrypto` tidak dibutuhkan), T-09 (migrasi 0021 vs runner). `P1-07`…`P1-09`, `P1-12`, `P1-14` naik dari "kode" menjadi "terbukti pada Postgres". |
