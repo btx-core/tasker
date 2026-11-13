@@ -47,7 +47,31 @@ if (failed > 0) {
 
 const expectIdx = rest.indexOf("--expect-skipped");
 if (expectIdx >= 0) {
-  const expected = Number(rest[expectIdx + 1]);
+  const raw = rest[expectIdx + 1];
+  /**
+   * Angka tetap "17" adalah gerbang yang akan merah setiap kali ada uji
+   * jaringan baru — dan itu terjadi dua kali (17 -> 29) tanpa ada yang salah.
+   * Merah karena angka administrasi, bukan karena perilaku, melatih orang
+   * mengabaikan merah. Karena itu gerbang menerima **rentang** (`17-100`):
+   * yang mau ditangkap bukan angkanya, melainkan "uji jaringan tiba-tiba
+   * BERJALAN di job tanpa database" dan "semua uji dilewati".
+   */
+  const range = typeof raw === "string" ? raw.split("-").map(Number) : [];
+  if (range.length === 2 && range.every(Number.isFinite)) {
+    const [min, max] = range;
+    if (pending < min || pending > max) {
+      console.error(
+        `::error::uji dilewati ${pending}, di luar rentang ${min}-${max}. ` +
+        `Kurangi = uji jaringan berjalan tanpa database; ` +
+        `lebih = ada uji yang berhenti didaftarkan.`,
+      );
+      process.exit(1);
+    }
+    console.log(`OK rentang ${min}-${max}: dilewati ${pending} masih wajar.`);
+    process.exit(0);
+  }
+
+  const expected = Number(raw);
   if (pending !== expected) {
     console.error(
       `::error::jumlah uji yang dilewati ${pending}, diharapkan ${expected}. ` +
