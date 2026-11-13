@@ -80,6 +80,11 @@ Mengacu `email.md` §8 dan `attachments-media.md` §8: T-EMAIL1…11 (mode `none
 - `T-SEARCH1…T-SEARCH8` (`realtime-and-search.md` §10): nomor task instan, query tepi, hasil tidak membocorkan tim, urutan bobot, palette.
 - `T-ADF1…T-ADF8` (`spike-jira-importer.md` §8): tidak ada teks hilang, tidak ada HTML mentah, level L1–L4 benar, node tak dikenal aman.
 
+### 4.1e Dukungan & i18n (`T-SUP`, `T-I18N`)
+
+- `T-SUP1…T-SUP5` (`support.md` §8): bundle diagnostik tanpa canary & bisa dipratinjau, `trace_id` dapat disalin & ditemukan di log, `kelindan doctor` mendeteksi 6 kegagalan konfigurasi, halaman status admin, daftar masalah diketahui tersedia.
+- `T-I18N1…T-I18N8` (`i18n.md` §7): tidak ada string tampilan di komponen, tidak ada kunci yatim, tidak ada format tanggal manual, due date tidak bergeser antar zona, relative time benar, `code` tidak diterjemahkan, kamus per-rute menjaga `UX-B1`, tata letak tahan +40%.
+
 ### 4.2 Konsistensi tulis (`T-WRITE`)
 
 | # | Uji | Membuktikan |

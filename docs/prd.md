@@ -430,6 +430,8 @@ Urutan ini mengikat karena beberapa hal di R0 menentukan R2 secara ireversibel.
 - `data-model.md` — kamus data siap-DDL Fase 1 + forward-compat Fase 2.
 - `rbac.md` — katalog aksi, peran, matriks, kasus uji.
 - `decisions-r0.md` — model operasi, peran, backup/restore, go-to-market, batas open-core.
+- `support.md` — kanal dukungan, triase, bundle diagnostik.
+- `i18n.md` — kebijakan bahasa & format.
 - `security-policy.md` — versi didukung, SLA kerentanan, kebijakan dependensi, artefak rilis.
 - `onboarding.md` — menit pertama, empty state, pratinjau impor.
 - `realtime-and-search.md` — perilaku real-time & pencarian.
