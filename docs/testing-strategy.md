@@ -73,6 +73,13 @@ Mengacu `editor-decision.md` §7: T-EDIT1 keamanan Markdown (XSS), T-EDIT2 tempe
 
 Mengacu `email.md` §8 dan `attachments-media.md` §8: T-EMAIL1…11 (mode `none` tidak mengirim, penolakan `From` domain publik, SMTP menggantung tidak menyentuh latensi mutasi, batas & digest, hard bounce, header injection, privasi subjek) dan T-MEDIA1…12 (kompresi/thumbnail, EXIF, board tanpa byte asli, CLS, presigned, tidak ada objek publik, allowlist tipe, SVG/HTML, kegagalan unggah, verifikasi `complete`, rate limit, pembersihan objek yatim).
 
+### 4.1d Onboarding, real-time lanjutan, pencarian, ADF (`T-ONB`, `T-RT8+`, `T-SEARCH`, `T-ADF`)
+
+- `T-ONB1…T-ONB8` (`onboarding.md` §10): instalasi < 5 menit tanpa akun default, setiap empty state punya tepat satu aksi & 0 istilah terlarang, error ≠ empty, task pertama < 60 detik, impor tidak bisa tanpa pratinjau.
+- `T-RT8…T-RT12` (`realtime-and-search.md` §5): status diarsipkan saat board terbuka, akses dicabut saat terhubung, 200 delta/detik, field terkunci lokal, klasifikasi objek wajib.
+- `T-SEARCH1…T-SEARCH8` (`realtime-and-search.md` §10): nomor task instan, query tepi, hasil tidak membocorkan tim, urutan bobot, palette.
+- `T-ADF1…T-ADF8` (`spike-jira-importer.md` §8): tidak ada teks hilang, tidak ada HTML mentah, level L1–L4 benar, node tak dikenal aman.
+
 ### 4.2 Konsistensi tulis (`T-WRITE`)
 
 | # | Uji | Membuktikan |
@@ -170,7 +177,8 @@ Mengacu `import-contract.md` §7. Tambahan gerbang:
 | T-SEC5 | Presigned URL kedaluwarsa/diubah → 403/410; `storage_key` tidak pernah di respons (TC-20) | T7, INV-09 |
 | T-SEC6 | Token API dengan scope di luar hak pembuat → ditolak saat dibuat (TC-18) | T4 |
 | T-SEC7 | 500 mention dalam satu komentar → ditolak/dipotong, notifikasi ≤ batas (TC-21) | T8 |
-| T-SEC8 | Pemeriksaan lisensi dependensi (ADR-014) + `npm audit` tingkat tinggi = gagal build | Supply chain (C9 bagian teknis) |
+| T-SEC8 | Pemeriksaan lisensi dependensi (ADR-014) + `npm audit` tingkat tinggi = gagal build | Supply chain |
+| T-SEC9…T-SEC16 | Tidak ada SQL string terangkai, header keamanan di semua rute, pemindaian image (non-root, tanpa secret, CVE kritis), SBOM, tidak ada rahasia di repo, rate limit & batas body, image bertanda tangan | `security-policy.md` §10 |
 
 ---
 
