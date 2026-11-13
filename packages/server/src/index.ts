@@ -6,6 +6,7 @@ export * from "./auth/password.js";
 export * from "./auth/login.js";
 export * from "./auth/rate-limit.js";
 export * from "./http/auth-routes.js";
+export * from "./http/collab-routes.js";
 export * from "./ws/protocol.js";
 export * from "./ws/hub.js";
 export * from "./ws/revocation.js";

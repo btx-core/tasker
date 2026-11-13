@@ -103,6 +103,44 @@ export async function applyTaskPatch(
       throw ApiError.versionConflict(canonical);
     }
 
+    /**
+     * ---- 4b. validasi status (api-contract.md §7.4) ----
+     *
+     * Hanya bila `status_id` benar-benar BERUBAH. Mengirim status yang sama
+     * dengan yang sekarang bukan transisi, dan menolaknya akan membuat klien
+     * yang mengirim seluruh objek (termasuk status lama) gagal tanpa alasan.
+     *
+     * KENAPA VALIDASI INI PERLU, padahal trigger DB sudah menjaga INV-08:
+     * trigger mencegah DATA RUSAK, tetapi pelanggarannya sampai ke klien sebagai
+     * **500 internal.error**. Klien tidak tahu apa yang salah, dan operator
+     * disuruh mencari log untuk kesalahan klien. Dua hal berbeda: kebenaran data
+     * (trigger) dan bentuk kegagalan yang bisa ditindaklanjuti (di sini).
+     */
+    const statusChanged = p.patch.status_id !== undefined && p.patch.status_id !== before.status_id;
+    let targetCategory: number | null = null;
+    if (statusChanged) {
+      const st = await client.query<{ category: number; team_id: string; archived_at: Date | null }>(
+        "SELECT category, team_id, archived_at FROM statuses WHERE id = $1",
+        [p.patch.status_id],
+      );
+      const status = st.rows[0];
+      if (!status) throw ApiError.validation("status_id tidak ditemukan", "status_id");
+
+      // INV-08: status harus milik tim task. Tim LAIN = kesalahan klien, 400.
+      if (status.team_id !== before.team_id) {
+        throw ApiError.validation("status_id bukan milik tim task ini", "status_id");
+      }
+      /**
+       * Status terarsip tidak boleh menjadi tujuan. Tanpa ini task bisa masuk
+       * kolom yang sudah disembunyikan dari board — task yang "hilang" dari UI
+       * tetapi masih dihitung di laporan.
+       */
+      if (status.archived_at !== null) {
+        throw ApiError.validation("status_id sudah diarsipkan", "status_id");
+      }
+      targetCategory = status.category;
+    }
+
     // ---- 5. hitung perubahan bersih ----
     const changed: (keyof TaskPatch)[] = [];
     for (const f of fields) {
@@ -125,6 +163,20 @@ export async function applyTaskPatch(
       vals.push(p.patch[f] ?? null);
       sets.push(`${f} = $${vals.length}`);
     }
+
+    /**
+     * Timestamp first-touch (INV-07). `COALESCE(kolom, now())` adalah
+     * keseluruhan aturannya dalam satu ekspresi: isi bila masih NULL, jangan
+     * sentuh bila sudah terisi. Menulis `= now()` akan menimpa waktu selesai
+     * pertama setiap kali task dibuka kembali — dan metrik "berapa lama task
+     * selesai" menjadi tidak bermakna tanpa ada yang terlihat rusak.
+     *
+     * Kategori: 3=Dikerjakan, 4=Selesai, 5=Dibatalkan (0008_statuses.sql).
+     */
+    if (targetCategory === 3) sets.push("started_at = COALESCE(started_at, now())");
+    if (targetCategory === 4) sets.push("completed_at = COALESCE(completed_at, now())");
+    if (targetCategory === 5) sets.push("canceled_at = COALESCE(canceled_at, now())");
+
     vals.push(before.version, before.id, p.actor.workspaceId);
     const updated = await client.query<TaskRow>(
       `UPDATE tasks SET ${sets.join(", ")}, version = version + 1, updated_at = now()
