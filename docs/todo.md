@@ -36,7 +36,7 @@ Dokumen ini **hidup**. Bagian ini adalah jawaban satu layar untuk pertanyaan
 "apa yang sudah, apa yang sebagian, apa yang belum" — tanpa membaca seluruh
 berkas. Bagian rinci ada di §P0–§P5, temuan di §8, bukti di §10.
 
-**Terakhir diperbarui:** 2026-11-13, **T-39 (UI komentar & checklist) selesai** di branch `arena/8199dcbf-tasker`.
+**Terakhir diperbarui:** 2026-11-13, setelah **PR #17 di-merge** (`76af76f`). **T-39 selesai dan terverifikasi.**
 
 | Metrik | Nilai |
 | :--- | :--- |
@@ -291,6 +291,7 @@ Setiap item dipromosikan ke fase sendiri **setelah** `P1`–`P4` hijau — karen
 
 | Tanggal | Perubahan |
 | :--- | :--- |
+| 2026-11-13 | **PR #17 di-merge (`76af76f`) — T-39 selesai, CI hijau 4 job pada percobaan pertama.** Seluruh uji baru berjalan di PGlite/DOM tiruan, jadi hitungan uji jaringan tidak bergeser. Yang masih terbuka dan **disengaja**: `T-45` — penjaga i18n memakai daftar berkas per nama, dan perbaikan sebenarnya (memindai direktori `components/`) belum dikerjakan. |
 | 2026-11-13 | **T-39 selesai**: panel detail `<dialog>` dengan komentar dan checklist. Perilaku lama "klik kartu -> fokus ke `<select>` status" **diganti** — itu jebakan yang membuat klik untuk melihat langsung siap mengubah data (**T-44**). Dua penjaga i18n yang memakai daftar berkas per nama diperluas, dan **T-45** mencatat bahwa daftar manual itu akan bolong lagi. Uji DOM tiruan menemukan `el.dataset` bisa undefined (**T-46**). Bukti: panel dijalankan di DOM tiruan — terbuka, memuat detail, menampilkan kedua formulir, dan mengembalikan fokus ke kartu asal. 307 uji (dari 281). |
 | 2026-11-13 | **PR #15 di-merge (`24d321c`) — B-C selesai, CI hijau 4 job pada percobaan PERTAMA.** Berbeda dari PR #11 dan #13 yang butuh beberapa run, tidak ada satu pun kegagalan gerbang di sini. Penyebabnya bukan keberuntungan: gerbang jumlah-dilewati sudah memakai rentang sejak PR #13, dan uji baru (15 modul + 15 integrasi + 19 HTTP + 7 transisi) semuanya berjalan di PGlite sehingga tidak mengubah hitungan uji jaringan. |
 | 2026-11-13 | **B-C selesai.** 8 rute baru (komentar GET/POST, PATCH/DELETE, checklist GET/POST/PATCH/DELETE), matriks peran penuh, revisi komentar, soft delete placeholder, posisi checklist ternormalisasi. **Empat temuan perilaku** (`T-40`…`T-43`) — dan yang paling penting: **peran `commenter` tidak bisa berkomentar** sejak awal, serta **tiga dari empat validasi transisi status tidak ada** padahal kontraknya menulisnya eksplisit. Uji ditulis lebih dulu dan gagal, baru kode diperbaiki. Diverifikasi pada dev-server hidup: komentar 201, checklist 201, transisi ke Selesai → `completed_at` terisi dan event `seq=1` tercatat. Uji: 281 lulus, 29 dilewati; 40 uji jaringan. |
