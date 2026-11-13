@@ -7,6 +7,7 @@ import { traceIdFrom } from "@kelindan/shared";
 import { Router, readJsonBody, sendJson, toErrorBody, type RequestContext } from "./http/router.js";
 import { registerRoutes, type Deps } from "./http/routes.js";
 import { registerAuthRoutes, type AuthRouteDeps } from "./http/auth-routes.js";
+import { registerCollabRoutes } from "./http/collab-routes.js";
 import { resolveAuth, type SessionRepo } from "./authz/session.js";
 import { clientIp, createRateLimiter, loginRateLimitKey, type RateLimiter } from "./auth/rate-limit.js";
 
@@ -34,6 +35,7 @@ export interface App {
 export function createApp(deps: AppDeps): App {
   const router = new Router();
   registerRoutes(router, deps);
+  registerCollabRoutes(router, deps);
   if (deps.auth) registerAuthRoutes(router, deps.auth);
 
   const limiter = deps.rateLimiter ?? createRateLimiter({ max: 10, windowMs: 60_000 });
