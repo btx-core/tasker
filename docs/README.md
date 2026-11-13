@@ -4,7 +4,7 @@ Direktori ini berisi dokumen **desain** (bukan implementasi). Tidak ada kode di 
 
 ## Status desain
 
-Per 2026-11-12, **seluruh 12 celah desain sudah ditutup** (`gaps-analysis.md`) dan tidak ada lagi dokumen yang memblokir penulisan kode. Yang tersisa bukan dokumen:
+Per 2026-11-12, **seluruh 12 celah desain sudah ditutup** (`gaps-analysis.md`), dan dua dokumen prasyarat kode sudah ada (`repo-layout.md`, `versioning.md`). **Tidak ada lagi dokumen yang memblokir penulisan kode.** Yang tersisa bukan dokumen:
 
 1. **Spike importer S1/S4** — butuh berkas ekspor Jira nyata (`spike-jira-importer.md` §2).
 2. **Dua keputusan pemilik** — komitmen waktu & anggaran infrastruktur (`decisions-r0.md` §7).
@@ -19,6 +19,8 @@ Per 2026-11-12, **seluruh 12 celah desain sudah ditutup** (`gaps-analysis.md`) d
 | [`architecture.md`](./architecture.md) | Keputusan arsitektur (ADR-001…ADR-014), topologi, profil deployment, model ancaman cache klien | **Aktif** — sumber kebenaran teknis |
 | [`data-model.md`](./data-model.md) | Kamus data Fase 1 siap-DDL: entitas, kolom, constraint, index, invariant, state machine | **Aktif** — sumber kebenaran skema |
 | [`rbac.md`](./rbac.md) | Katalog aksi, peran, matriks permission, invariant, kasus uji | **Aktif** — sumber kebenaran otorisasi |
+| [`repo-layout.md`](./repo-layout.md) | **Dokumen A** — tata letak repo, batas modul, kontrak perintah, konfigurasi, definisi "selesai" PR, alur git | **Aktif** — prasyarat kode |
+| [`versioning.md`](./versioning.md) | **Dokumen B** — SemVer & janji tiap angka, saluran rilis, format catatan rilis, deprecation, konvensi kontribusi | **Aktif** — mengikat |
 | [`support.md`](./support.md) | Dukungan: kanal & janji respons, triase P1–P5, bundle diagnostik aman, batas dukungan | **Aktif** — mengikat |
 | [`i18n.md`](./i18n.md) | Internasionalisasi: satu bahasa tapi terpusat, format tanggal/zona waktu, triger bahasa kedua | **Aktif** — mengikat |
 | [`security-policy.md`](./security-policy.md) | Kebijakan keamanan & supply chain: versi didukung, SLA respons, alur kerentanan, kebijakan dependensi, artefak rilis, insiden | **Aktif** — mengikat |
@@ -54,9 +56,10 @@ Dokumen v0 tidak lagi menjadi acuan. Di mana dokumen v0 dan direktori ini berbed
 10. `realtime-and-search.md` + `onboarding.md` — perilaku tepi real-time, pencarian, dan menit pertama (C7, C8, C11).
 11. `spike-jira-importer.md` — apa yang bisa diselesaikan tanpa data Jira dan apa yang **tidak** (S1–S6).
 12. `support.md` + `i18n.md` — dua celah terakhir (C10, C12).
-13. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
-14. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
-15. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
+13. `repo-layout.md` + `versioning.md` — **baca sebelum commit pertama**: struktur repo, batas modul, definisi "selesai", dan aturan rilis.
+14. `ux-principles.md` — bagaimana "ramah, mudah, ringan" diukur, bukan diklaim.
+15. `gaps-analysis.md` — apa yang belum ada dan urutan penutupannya (§6).
+16. `import-contract.md` — **baca sebelum menulis migration pertama**: ia menambah kolom wajib pada `tasks`, `comments`, `attachments`, `task_events`.
 
 ## Konvensi ID
 
